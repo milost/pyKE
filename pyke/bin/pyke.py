@@ -566,5 +566,3 @@ def rescal(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/RESCAL.json".format(out_path))
-
-# TODO: TransD, TransH, TransR
