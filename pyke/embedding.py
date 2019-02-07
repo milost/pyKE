@@ -45,6 +45,9 @@ class Embedding:
         self.rel_dim = 10  # TransR
         self.margin = 1.0  # HolE, RESCAL, TransD, TransE, TransH, TransR
         self.weight = 0.0001  # ComplEx, DistMult
+        # used to provide easier access to embeddings.
+        self.embeddings = None
+
         # Apply kwargs
         for key, value in kwargs.items():
             if hasattr(self, key):
@@ -162,6 +165,14 @@ class Embedding:
         """
         self.__config.save_parameters(path)
 
+    def load_embeddings_from_npy(self, path: str):
+        """
+        Loads only the previously calculated embeddings.
+        This can be used if only querying is needed.
+        :param path: the path from where to load the embeddings
+        """
+        self.embeddings = np.load(path)
+
     def restore(self, prefix: str):
         """
         Loads an existing embedding.
@@ -230,7 +241,28 @@ class Embedding:
 
         :return: Entity embedding as numpy matrix
         """
-        return self.__config.get_parameters_by_name("ent_embeddings")
+        if self.embeddings is None:
+            self.embeddings = self.__config.get_parameters_by_name("ent_embeddings")
+        return self.embeddings
+
+    def __getitem__(self, entity):
+        """
+        Allows to query the embedding of a specific entity.
+        :param entity: the entity for which the embedding is to be obtained
+        :return: The embedding of the requested entity or None if the entity does not exist.
+        """
+        if self.embeddings is None:
+            self.get_ent_embeddings()
+
+        try:
+            entity_id = self.dataset.get_entity_id(entity)
+        except KeyError:
+            entity_id = None
+
+        if entity_id:
+            return self.embeddings[entity_id]
+        else:
+            return None
 
     def get_parameters(self):
         """

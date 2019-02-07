@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import click
+import numpy as np
 
 from pyke.dataset import Dataset
 from pyke.embedding import Embedding
@@ -83,6 +84,8 @@ def transr(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/TransR.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/TransR.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate TransH embeddings for knowledge base')
@@ -152,6 +155,8 @@ def transh(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/TransH.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/TransH.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate TransD embeddings for knowledge base')
@@ -221,6 +226,8 @@ def transd(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/TransD.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/TransD.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate TransE embeddings for knowledge base')
@@ -290,6 +297,8 @@ def transe(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/TransE.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/TransE.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate ComplEx embeddings for knowledge base')
@@ -359,6 +368,8 @@ def complex(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/ComplEx.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/ComplEx.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate DistMult embeddings for knowledge base')
@@ -428,6 +439,8 @@ def distmult(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/DistMult.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/DistMult.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate HolE embeddings for knowledge base')
@@ -497,6 +510,8 @@ def hole(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/HolE.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/HolE.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate RESCAL embeddings for knowledge base')
@@ -566,3 +581,5 @@ def rescal(folds,
 
     # Save the embedding to a JSON file
     embedding.save_to_json("{}/RESCAL.json".format(out_path))
+    # Save the embedding as numpy file
+    np.save("{}/RESCAL.npy".format(out_path), embedding.get_ent_embeddings())
