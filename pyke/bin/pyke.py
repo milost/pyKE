@@ -241,6 +241,7 @@ def transd(folds,
 @click.option('-m', '--margin', type=float, default=1.0)
 @click.option('-o', '--out', type=str, default='./embeddings/TransE',
               help='Output directory in which the generated embeddings are to be stored')
+@click.option('-j', '--json', default=False)
 @click.argument('file_path')
 def transe(folds,
            epochs,
@@ -251,9 +252,11 @@ def transe(folds,
            dims,
            margin,
            out,
+           json,
            file_path):
     """Initializes the repository."""
     dataset = Dataset(filename=file_path)
+    file_path = Path(file_path)
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
@@ -296,9 +299,15 @@ def transe(folds,
         out_path.mkdir(parents=True)
 
     # Save the embedding to a JSON file
-    embedding.save_to_json("{}/TransE.json".format(out_path))
+    if json:
+        embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.json")
+
     # Save the embedding as numpy file
-    np.save("{}/TransE.npy".format(out_path), embedding.get_ent_embeddings())
+    archive_name = f'{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
+    np.savez_compressed(f"{out_path}/{archive_name}",
+                        entity2id=embedding.dataset.entity2id,
+                        relation2id=embedding.dataset.relation2id,
+                        embeddings=embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate ComplEx embeddings for knowledge base')
@@ -454,6 +463,7 @@ def distmult(folds,
 @click.option('-m', '--margin', type=float, default=1.0)
 @click.option('-o', '--out', type=str, default='./embeddings/HolE',
               help='Output directory in which the generated embeddings are to be stored')
+@click.option('-j', '--json', default=False)
 @click.argument('file_path')
 def hole(folds,
          epochs,
@@ -464,9 +474,11 @@ def hole(folds,
          dims,
          margin,
          out,
+         json,
          file_path):
     """Initializes the repository."""
     dataset = Dataset(filename=file_path)
+    file_path = Path(file_path)
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
@@ -509,9 +521,15 @@ def hole(folds,
         out_path.mkdir(parents=True)
 
     # Save the embedding to a JSON file
-    embedding.save_to_json("{}/HolE.json".format(out_path))
+    if json:
+        embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_hole_embs.json")
+
     # Save the embedding as numpy file
-    np.save("{}/HolE.npy".format(out_path), embedding.get_ent_embeddings())
+    archive_name = f'{file_path.name.rstrip(file_path.suffix)}_hole_embs.npz'
+    np.savez_compressed(f"{out_path}/{archive_name}",
+                        entity2id=embedding.dataset.entity2id,
+                        relation2id=embedding.dataset.relation2id,
+                        embeddings=embedding.get_ent_embeddings())
 
 
 @cli.command(help='Calculate RESCAL embeddings for knowledge base')
