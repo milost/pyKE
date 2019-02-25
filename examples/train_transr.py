@@ -3,7 +3,7 @@ from pyke.embedding import Embedding
 from pyke.models import TransR
 
 # Read the dataset
-dataset = Dataset("./benchmarks/fb15k.nt")
+dataset = Dataset("../benchmarks/fb15k.nt")
 embedding = Embedding(
     dataset,
     TransR,
