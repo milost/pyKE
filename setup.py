@@ -25,6 +25,6 @@ setup(
         'pandas==0.23.3',
     ],
     entry_points={
-        'console_scripts': ['pyke=pyke.bin.pyke:cli'],
+        'console_scripts': ['pyke=pyke.bin.commands:cli'],
     }
 )

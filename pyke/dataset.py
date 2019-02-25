@@ -5,6 +5,23 @@ from pyke.library import Library
 from pyke.parser import NTriplesParser
 
 
+def parse_idx_file(path: str):
+    entity_to_idx = {}
+    idx_to_entity = {}
+
+    with open(path) as f:
+        f.readline()
+        for line in f:
+            try:
+                rel, rel_id = line.rsplit(maxsplit=1)
+                rel_id = int(rel_id)
+                entity_to_idx[rel] = rel_id
+                idx_to_entity[rel_id] = rel
+            except ValueError:
+                continue
+    return entity_to_idx, idx_to_entity
+
+
 class Dataset(object):
     """
     Manages a collection of relational data
@@ -16,7 +33,7 @@ class Dataset(object):
     describing an index in an ordered table.
     """
 
-    def __init__(self, filename: str, temp_dir: str = ".pyke", generate_valid_test: bool = False,
+    def __init__(self, filename: str = None, temp_dir: str = ".pyke", generate_valid_test: bool = False,
                  fail_silently: bool = True):
         """
         Creates a new dataset from a N-triples file.
@@ -39,52 +56,55 @@ class Dataset(object):
         """
         self.__library = Library.get_library(temp_dir)
 
-        parser = NTriplesParser(filename, temp_dir, generate_valid_test, fail_silently)
-        parser.parse()
+        self.size = 0
+        self.benchmark_dir = ''
+        self.ent_count = 0
+        self.rel_count = 0
+        self.shape = self.ent_count, self.rel_count
+        self.entity2id = {}
+        self._id2entity = {}
+        self.relation2id = {}
+        self._id2relation = {}
 
-        self.benchmark_dir = parser.output_dir if parser.output_dir[:-1] == "/" else parser.output_dir + "/"
-        self.__library.setInPath(ctypes.create_string_buffer(self.benchmark_dir.encode(), len(self.benchmark_dir) * 2))
-        self.__library.importTrainFiles()
+        if filename is not None:
+            parser = NTriplesParser(filename, temp_dir, generate_valid_test, fail_silently)
+            parser.parse()
+
+            self.benchmark_dir = parser.output_dir if parser.output_dir[:-1] == "/" else parser.output_dir + "/"
+            self.__library.setInPath(ctypes.create_string_buffer(self.benchmark_dir.encode(), len(self.benchmark_dir) * 2))
+            self.__library.importTrainFiles()
+            self.size = parser.train_count
+            self.ent_count = parser.ent_count
+            self.rel_count = parser.rel_count
+            self.shape = self.ent_count, self.rel_count
+            self.train_set = self.read_benchmark(parser.train_file)
+            self.test_set = self.read_benchmark(parser.test_file) if generate_valid_test else []
+            self.valid_set = self.read_benchmark(parser.valid_file) if generate_valid_test else []
+
+            self.entity2id, self._id2entity = parse_idx_file(parser.entity_file)
+            self.relation2id, self._id2relation = parse_idx_file(parser.relation_file)
+
         if generate_valid_test:
             self.__library.importTestFiles()
             self.__library.importTypeFiles()
 
         self.generate_valid_test = generate_valid_test
-        self.size = parser.train_count
-        self.ent_count = parser.ent_count
-        self.rel_count = parser.rel_count
-        self.shape = self.ent_count, self.rel_count
-        self.train_set = self.read_benchmark(parser.train_file)
-        self.test_set = self.read_benchmark(parser.test_file) if generate_valid_test else []
-        self.valid_set = self.read_benchmark(parser.valid_file) if generate_valid_test else []
-        self.entity2id = {}
-        self.id2entity = {}
-        self.relation2id = {}
-        self.id2relation = {}
-        with open(parser.entity_file) as f:
-            f.readline()
-            for line in f:
-                try:
-                    ent, ent_id = line.rsplit(maxsplit=1)
-                    ent_id = int(ent_id)
-                    self.entity2id[ent] = ent_id
-                    self.id2entity[ent_id] = ent
-                except ValueError:
-                    continue
-        with open(parser.relation_file) as f:
-            f.readline()
-            for line in f:
-                try:
-                    rel, rel_id = line.rsplit(maxsplit=1)
-                    rel_id = int(rel_id)
-                    self.relation2id[rel] = rel_id
-                    self.id2relation[rel_id] = rel
-                except ValueError:
-                    continue
 
     def __len__(self):
         """Returns the size of the dataset."""
         return self.size
+
+    @property
+    def id2entity(self):
+        if self.entity2id and not self._id2entity:
+            self._id2entity = {v: k for k, v in self.entity2id.items()}
+        return self._id2entity
+
+    @property
+    def id2relation(self):
+        if self.relation2id and not self._id2relation:
+            self._id2relation = {v: k for k, v in self.relation2id.items()}
+        return self._id2relation
 
     def get_entity_id(self, entity):
         return self.entity2id[entity]

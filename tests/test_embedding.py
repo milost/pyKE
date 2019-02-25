@@ -24,6 +24,6 @@ class TestEmbedding(TestCase):
     def test_get_ent_embeddings(self):
         em = Embedding(self.dataset, TransE)
         em.train("./tests/tmp/TransE", continue_training=False)
-        embedding_values = em.get_ent_embeddings()
+        embedding_values = em.get_entity_embeddings()
         self.assertIsInstance(embedding_values, np.ndarray)
         self.assertEqual(embedding_values.shape, (11, 50))

@@ -303,11 +303,8 @@ def transe(folds,
         embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.json")
 
     # Save the embedding as numpy file
-    archive_name = f'{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
-    np.savez_compressed(f"{out_path}/{archive_name}",
-                        entity2id=embedding.dataset.entity2id,
-                        relation2id=embedding.dataset.relation2id,
-                        embeddings=embedding.get_ent_embeddings())
+    archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
+    embedding.save_to_npz(archive_name)
 
 
 @cli.command(help='Calculate ComplEx embeddings for knowledge base')
@@ -525,11 +522,9 @@ def hole(folds,
         embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_hole_embs.json")
 
     # Save the embedding as numpy file
-    archive_name = f'{file_path.name.rstrip(file_path.suffix)}_hole_embs.npz'
-    np.savez_compressed(f"{out_path}/{archive_name}",
-                        entity2id=embedding.dataset.entity2id,
-                        relation2id=embedding.dataset.relation2id,
-                        embeddings=embedding.get_ent_embeddings())
+    # Save the embedding as numpy file
+    archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_hol_e_embs.npz'
+    embedding.save_to_npz(archive_name)
 
 
 @cli.command(help='Calculate RESCAL embeddings for knowledge base')
@@ -601,3 +596,7 @@ def rescal(folds,
     embedding.save_to_json("{}/RESCAL.json".format(out_path))
     # Save the embedding as numpy file
     np.save("{}/RESCAL.npy".format(out_path), embedding.get_ent_embeddings())
+
+
+if __name__ == '__main__':
+    cli()

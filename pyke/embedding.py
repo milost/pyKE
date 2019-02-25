@@ -23,8 +23,8 @@ class Embedding:
     :param optimizer: Possible values: SGD, Adagrad, Adadelta, Adam
     """
 
-    def __init__(self, dataset: Dataset, model_class: type, **kwargs):
-        self.dataset = dataset
+    def __init__(self, dataset: Dataset = None, model_class: type = None, **kwargs):
+        self.dataset = dataset or Dataset()
         self.model_class = model_class
         # self.__model = None
         self.__config = None
@@ -46,13 +46,15 @@ class Embedding:
         self.margin = 1.0  # HolE, RESCAL, TransD, TransE, TransH, TransR
         self.weight = 0.0001  # ComplEx, DistMult
         # used to provide easier access to embeddings.
-        self.embeddings = None
+        self.entity_embeddings = None
+        self.relationship_embeddings = None
 
         # Apply kwargs
         for key, value in kwargs.items():
             if hasattr(self, key):
                 setattr(self, key, value)
-        self.__init_config()
+        if model_class is not None:
+            self.__init_config()
 
     def __str__(self):
         return "<Embedding: {} {}>".format(self.model_class.__name__.split('.')[-1], self.get_model_parameters())
@@ -165,13 +167,37 @@ class Embedding:
         """
         self.__config.save_parameters(path)
 
+    def save_to_npz(self, path: str):
+        """
+        Saves indices and embeddings into a compressed numpy file (.npz).
+        :param path: where to save the compressed archive
+        """
+        np.savez_compressed(path,
+                            entity2id=self.dataset.entity2id,
+                            relation2id=self.dataset.relation2id,
+                            entity_embeddings=self.get_entity_embeddings(),
+                            relationship_embeddings=self.get_relationship_embeddings())
+
+    @classmethod
+    def load_from_npz(cls, path: str) -> 'Embedding':
+        with np.load(path) as data:
+            embs = cls(Dataset(), None)
+            embs.dataset.entity2id = data['entity2id'].item()
+            embs.dataset.relation2id = data['relation2id'].item()
+            embs.entity_embeddings = data['entity_embeddings']
+            try:
+                embs.relationship_embeddings = data['relationship_embeddings']
+            except KeyError:
+                pass
+            return embs
+
     def load_embeddings_from_npy(self, path: str):
         """
         Loads only the previously calculated embeddings.
         This can be used if only querying is needed.
         :param path: the path from where to load the embeddings
         """
-        self.embeddings = np.load(path)
+        self.entity_embeddings = np.load(path)
 
     def restore(self, prefix: str):
         """
@@ -235,32 +261,43 @@ class Embedding:
         """
         raise NotImplementedError("Hits@k is currently not implemented.")
 
-    def get_ent_embeddings(self):
+    def get_relationship_embeddings(self):
         """
-        Returns the entity embedding.
+        Returns the relationship embeddings.
 
-        :return: Entity embedding as numpy matrix
+        :return: Relationship embeddings as numpy matrix
         """
-        if self.embeddings is None:
-            self.embeddings = self.__config.get_parameters_by_name("ent_embeddings")
-        return self.embeddings
+        if self.relationship_embeddings is None:
+            self.relationship_embeddings = self.__config.get_parameters_by_name("rel_embeddings")
+        return self.relationship_embeddings
 
-    def __getitem__(self, entity):
+    def get_entity_embeddings(self):
         """
-        Allows to query the embedding of a specific entity.
-        :param entity: the entity for which the embedding is to be obtained
-        :return: The embedding of the requested entity or None if the entity does not exist.
-        """
-        if self.embeddings is None:
-            self.get_ent_embeddings()
+        Returns the entity embeddings.
 
+        :return: Entity embeddings as numpy matrix
+        """
+        if self.entity_embeddings is None:
+            self.entity_embeddings = self.__config.get_parameters_by_name("ent_embeddings")
+        return self.entity_embeddings
+
+    def get_embedding_for(self, entity: str):
+        """
+        Retrieves the embedding that belongs to the passed in entity.
+        :param entity:
+        :return: the embedding that belongs to the passed in entity, else None
+        """
+        if self.entity_embeddings is None:
+            self.get_entity_embeddings()
+
+        # get entity id
         try:
             entity_id = self.dataset.get_entity_id(entity)
         except KeyError:
             entity_id = None
 
         if entity_id:
-            return self.embeddings[entity_id]
+            return self.entity_embeddings[entity_id]
         else:
             return None
 
