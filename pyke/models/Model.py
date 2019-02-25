@@ -11,25 +11,25 @@ class Model(object):
         if in_batch:
             return [self.postive_h, self.postive_t, self.postive_r]
         else:
-            return [self.batch_h[0:self.config.batch_size], \
-                    self.batch_t[0:self.config.batch_size], \
+            return [self.batch_h[0:self.config.batch_size],
+                    self.batch_t[0:self.config.batch_size],
                     self.batch_r[0:self.config.batch_size]]
 
     def get_negative_instance(self, in_batch=True):
         if in_batch:
             return [self.negative_h, self.negative_t, self.negative_r]
         else:
-            return [self.batch_h[self.config.batch_size:self.config.batch_seq_size], \
-                    self.batch_t[self.config.batch_size:self.config.batch_seq_size], \
+            return [self.batch_h[self.config.batch_size:self.config.batch_seq_size],
+                    self.batch_t[self.config.batch_size:self.config.batch_seq_size],
                     self.batch_r[self.config.batch_size:self.config.batch_seq_size]]
 
     def get_all_instance(self, in_batch=False):
         if in_batch:
             return [
                 tf.transpose(tf.reshape(self.batch_h, [1 + self.config.negative_ent + self.config.negative_rel, -1]),
-                             [1, 0]), \
+                             [1, 0]),
                 tf.transpose(tf.reshape(self.batch_t, [1 + self.config.negative_ent + self.config.negative_rel, -1]),
-                             [1, 0]), \
+                             [1, 0]),
                 tf.transpose(tf.reshape(self.batch_r, [1 + self.config.negative_ent + self.config.negative_rel, -1]),
                              [1, 0])]
         else:
