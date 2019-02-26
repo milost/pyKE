@@ -3,6 +3,7 @@ import ctypes
 
 from pyke.library import Library
 from pyke.parser import NTriplesParser
+from tqdm import tqdm
 
 
 def parse_idx_file(path: str):
@@ -158,5 +159,7 @@ class Dataset(object):
     def read_benchmark(filename):
         with open(filename) as f:
             f.readline()  # Skip first line containing the number of rows
-            triple_list = [(int(line.split()[0]), int(line.split()[1]), int(line.split()[2])) for line in f]
+            triple_list = [(int(line.split()[0]),
+                            int(line.split()[1]),
+                            int(line.split()[2])) for line in tqdm(f, desc='Reading', unit=' triples')]
         return triple_list

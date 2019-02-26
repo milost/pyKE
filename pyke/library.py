@@ -71,6 +71,7 @@ class Library:
         if not os.path.exists(library_path):
             print("Compiling library ...")
             Library.compile_library(library_path)
+            print("Compilation finished ...")
 
         if not Library.library:
             Library.load_library(library_path)

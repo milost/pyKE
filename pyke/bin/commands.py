@@ -477,6 +477,7 @@ def hole(folds,
     dataset = Dataset(filename=file_path)
     file_path = Path(file_path)
 
+    click.echo('')
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
     click.echo("Knowledge Base: {}".format(file_path))

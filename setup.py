@@ -23,6 +23,7 @@ setup(
         'numpy==1.14.5',
         'tensorflow==1.8.0',
         'pandas==0.23.3',
+        'tqdm==4.31.1'
     ],
     entry_points={
         'console_scripts': ['pyke=pyke.bin.commands:cli'],

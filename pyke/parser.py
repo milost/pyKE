@@ -8,6 +8,7 @@ Module contains different parsers to support multiple file types.
 import os
 import sys
 from typing import List, Dict, Tuple, Any
+from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
@@ -81,9 +82,8 @@ class NTriplesParser:
         """
         sys.stdout.write("Reading Triple lines ... ")
         sys.stdout.flush()
-        lines = open(triples_fn, "r").readlines()
-        print(str(len(lines)) + " Triple lines")
-        return lines
+        with open(triples_fn, "r", encoding='utf-8') as file:
+            return [line.strip() for line in tqdm(file, desc='Reading', unit=' triples')]
 
     def map_triple_lines(self, triple_lines: List[str]):
         """
@@ -102,11 +102,8 @@ class NTriplesParser:
         # iterate through every line containing a triple
         sys.stdout.write("Processing Triple lines ... ")
         sys.stdout.flush()
-        progess = 0
         skipped = 0
-        finish = len(triple_lines)
-        last_percentage = 0
-        for triple_line in triple_lines:
+        for triple_line in tqdm(triple_lines, desc='Processing', unit=' triples'):
             # split it and check if it is a triple
             try:
                 triple = split_nt_line(triple_line)
@@ -149,13 +146,13 @@ class NTriplesParser:
             mapped_triple = [idx_sub, idx_obj, idx_rel]
             list_triples.append(mapped_triple)
 
-            # output progess (avoid spamming)
-            progess += 1
-            percentage = int((progess * 100) / finish)
-            if percentage > last_percentage:
-                sys.stdout.write("\rProcessing Triple lines ... " + str(percentage) + "%")
-                sys.stdout.flush()
-                last_percentage = percentage
+            # # output progess (avoid spamming)
+            # progess += 1
+            # percentage = int((progess * 100) / finish)
+            # if percentage > last_percentage:
+            #     sys.stdout.write("\rProcessing Triple lines ... " + str(percentage) + "%")
+            #     sys.stdout.flush()
+            #     last_percentage = percentage
 
         # output results
         print("")
