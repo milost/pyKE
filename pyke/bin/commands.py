@@ -283,6 +283,7 @@ def transe(folds,
         workers=workers,
         dimension=dims,  # TransE-specific
         margin=margin,  # TransE-specific
+        out_path=out
     )
 
     checkpoint_path = Path('./checkpoints/TransE')
@@ -503,6 +504,7 @@ def hole(folds,
         workers=workers,
         dimension=dims,  # TransE-specific
         margin=margin,  # TransE-specific
+        out_path=out
     )
 
     checkpoint_path = Path('./checkpoints/HolE')

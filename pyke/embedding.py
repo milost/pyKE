@@ -23,7 +23,10 @@ class Embedding:
     :param optimizer: Possible values: SGD, Adagrad, Adadelta, Adam
     """
 
-    def __init__(self, dataset: Dataset = None, model_class: type = None, **kwargs):
+    def __init__(self, dataset: Dataset = None,
+                 model_class: type = None,
+                 out_path = None,
+                 **kwargs):
         self.dataset = dataset or Dataset()
         self.model_class = model_class
         # self.__model = None
@@ -37,6 +40,7 @@ class Embedding:
         self.folds = 20
         self.epochs = 50
         self.optimizer = "SGD"
+        # self.optimizer = "Adam"
         self.per_process_gpu_memory_fraction = 0.5
         self.learning_rate = 0.01
         # Model specific parameters
@@ -48,6 +52,7 @@ class Embedding:
         # used to provide easier access to embeddings.
         self.entity_embeddings = None
         self.relationship_embeddings = None
+        self.out_path = out_path
 
         # Apply kwargs
         for key, value in kwargs.items():
@@ -78,6 +83,7 @@ class Embedding:
         con.set_ent_neg_rate(self.neg_ent)
         con.set_rel_neg_rate(self.neg_rel)
         con.set_opt_method(self.optimizer)
+        con.set_out_files(self.out_path)
         con.per_process_gpu_memory_fraction = self.per_process_gpu_memory_fraction
         con.init()
         con.set_model(self.model_class)

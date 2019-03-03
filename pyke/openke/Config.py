@@ -1,8 +1,10 @@
 # coding:utf-8
 import json
 
+import pandas as pd
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm, trange
 
 from pyke.library import Library
 
@@ -17,7 +19,7 @@ class Config(object):
         self.hidden_size = 100
         self.ent_size = self.hidden_size
         self.rel_size = self.hidden_size
-        self.train_times = 0
+        self.train_times = 0  # these are the epochs
         self.margin = 1.0
         self.nbatches = 100
         self.negative_ent = 1
@@ -291,24 +293,34 @@ class Config(object):
         return predict
 
     def run(self):
+        losses = []
         with self.graph.as_default():
             with self.sess.as_default():
                 if self.importName != None:
                     self.restore_tensorflow()
-                for times in range(self.train_times):
-                    res = 0.0
-                    for batch in range(self.nbatches):
-                        self.sampling()
-                        res += self.train_step(self.batch_h, self.batch_t, self.batch_r, self.batch_y)
-                    self.current_loss = res
-                    if self.log_on:
-                        print('[Epoch {}] Loss: {}'.format(times, res))
-                    if self.exportName != None and (self.export_steps != 0 and times % self.export_steps == 0):
-                        self.save_tensorflow()
+                with trange(self.train_times) as epochs:
+                    for times in epochs:
+                        res = 0.0
+                        for batch in range(self.nbatches):
+                            self.sampling()
+                            res += self.train_step(self.batch_h, self.batch_t, self.batch_r, self.batch_y)
+                        self.current_loss = res
+                        epochs.set_description(f'Training')
+                        epochs.set_postfix(loss=res)
+                        epochs.unit = ' epochs'
+                        losses.append(res)
+                        if self.log_on:
+                            pass
+                            # print('[Epoch {}] Loss: {}'.format(times, res))
+                        if self.exportName != None and (self.export_steps != 0 and times % self.export_steps == 0):
+                            self.save_tensorflow()
                 if self.exportName != None:
                     self.save_tensorflow()
                 if self.out_path != None:
-                    self.save_parameters(self.out_path)
+                    df = pd.DataFrame({"Loss": losses})
+                    df.index.name = "Epoch"
+                    df.to_csv(self.out_path + "/losses.csv")
+                    # self.save_parameters(self.out_path)
 
     def test(self):
         with self.graph.as_default():
@@ -326,7 +338,7 @@ class Config(object):
                         res = self.test_step(self.test_h, self.test_t, self.test_r)
                         self.lib.testTail(res.__array_interface__['data'][0])
                         if self.log_on:
-                            print('Epoch: {}'.format(times))
+                            print('Epoch: {}'.format(times+1))
                     self.lib.test_link_prediction()
                 if self.test_triple_classification:
                     self.lib.getValidBatch(self.valid_pos_h_addr, self.valid_pos_t_addr, self.valid_pos_r_addr,
