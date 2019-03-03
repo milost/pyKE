@@ -289,15 +289,15 @@ def transe(folds,
     checkpoint_path = Path('./checkpoints/TransE')
     out_path = Path(out)
 
+    if not out_path.exists():
+        out_path.mkdir(parents=True)
+
     # Train the model. It is saved in the process.
     if not checkpoint_path.exists():
         click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
         checkpoint_path.mkdir(parents=True)
 
     embedding.train(prefix='{}/TransE'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
 
     # Save the embedding to a JSON file
     if json:
@@ -509,6 +509,9 @@ def hole(folds,
 
     checkpoint_path = Path('./checkpoints/HolE')
     out_path = Path(out)
+
+    if not out_path.exists():
+        out_path.mkdir(parents=True)
 
     # Train the model. It is saved in the process.
     if not checkpoint_path.exists():
