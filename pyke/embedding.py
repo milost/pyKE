@@ -40,7 +40,6 @@ class Embedding:
         self.folds = 20
         self.epochs = 50
         self.optimizer = "SGD"
-        # self.optimizer = "Adam"
         self.per_process_gpu_memory_fraction = 0.5
         self.learning_rate = 0.01
         # Model specific parameters

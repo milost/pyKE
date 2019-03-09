@@ -237,6 +237,7 @@ def transd(folds,
 @click.option('-nr', '--neg_rel', type=int, default=0)
 @click.option('-b', '--bern', type=bool, default=False)
 @click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
+@click.option('-opt', '--optimizer', default='SGD', help='The optimizer to be used: SGD, Adagrad, Adadelta, Adam')
 @click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
 @click.option('-m', '--margin', type=float, default=1.0)
 @click.option('-o', '--out', type=str, default='./embeddings/TransE',
@@ -249,6 +250,7 @@ def transe(folds,
            neg_rel,
            bern,
            workers,
+           optimizer,
            dims,
            margin,
            out,
@@ -267,6 +269,7 @@ def transe(folds,
     click.echo("Neg_Rel: {}".format(neg_rel))
     click.echo("bern: {}".format(bern))
     click.echo("Workers: {}".format(workers))
+    click.echo("Optimizer: {}".format(optimizer))
     click.echo("Dimensionality: {}".format(dims))
     click.echo("Margin: {}".format(margin))
     click.echo("Output directory: {}".format(out))
@@ -281,6 +284,7 @@ def transe(folds,
         neg_rel=neg_rel,
         bern=bern,
         workers=workers,
+        optimizer=optimizer,
         dimension=dims,  # TransE-specific
         margin=margin,  # TransE-specific
         out_path=out
