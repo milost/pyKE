@@ -12,10 +12,16 @@ def split_nt_line(line: str):
     :return: tuple with subject, predicate, object
     """
     s, p, o = line.split(maxsplit=2)
-    s = s.lstrip("<").rstrip(">")
-    p = p.lstrip("<").rstrip(">")
-    o = o.strip().rstrip(" .")
-    if o.startswith("<"):
+    if s.startswith("<") and s.endswith('>'):
+        s = s.lstrip("<").rstrip(">")
+    if p.startswith("<") and p.endswith('>'):
+        p = p.lstrip("<").rstrip(">")
+
+    o = o.strip()
+    if o.endswith(" ."):
+        o = o.rstrip(" .")
+
+    if o.startswith("<") and o.endswith('>'):
         o = o.lstrip("<").rstrip(">")
     return s, p, o
 

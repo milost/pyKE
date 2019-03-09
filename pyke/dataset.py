@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import ctypes
+from pathlib import Path
 
 from pyke.library import Library
 from pyke.parser import NTriplesParser
@@ -58,6 +59,7 @@ class Dataset(object):
         self.__library = Library.get_library(temp_dir)
 
         self.size = 0
+        self.name = Path(filename).stem
         self.benchmark_dir = ''
         self.ent_count = 0
         self.rel_count = 0
@@ -158,8 +160,8 @@ class Dataset(object):
     @staticmethod
     def read_benchmark(filename):
         with open(filename) as f:
-            f.readline()  # Skip first line containing the number of rows
+            count = int(f.readline())  # Skip first line containing the number of rows
             triple_list = [(int(line.split()[0]),
                             int(line.split()[1]),
-                            int(line.split()[2])) for line in tqdm(f, desc='Reading', unit=' triples')]
+                            int(line.split()[2])) for line in tqdm(f, total=count, desc='Reading', unit=' triples')]
         return triple_list

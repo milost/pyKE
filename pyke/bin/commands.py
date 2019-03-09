@@ -1,11 +1,31 @@
 from pathlib import Path
 
 import click
-import numpy as np
 
 from pyke.dataset import Dataset
 from pyke.embedding import Embedding
 from pyke.models import TransE, TransD, TransH, TransR, HolE, ComplEx, DistMult, RESCAL
+
+
+def get_model(model_type: str = 'TransE'):
+    if model_type == 'TransE':
+        return TransE
+    elif model_type == 'TransD':
+        return TransD
+    elif model_type == 'TransH':
+        return TransH
+    elif model_type == 'TransR':
+        return TransR
+    elif model_type == 'HolE':
+        return HolE
+    elif model_type == 'ComplEx':
+        return ComplEx
+    elif model_type == 'DistMult':
+        return DistMult
+    elif model_type == 'RESCAL':
+        return RESCAL
+    else:
+        raise ValueError(f'Unknown model_type {model_type}')
 
 
 @click.group()
@@ -13,225 +33,9 @@ def cli():
     pass
 
 
-@cli.command(help='Calculate TransR embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-ed', '--ent_dim', type=int, default=50)
-@click.option('-rd', '--rel_dim', type=int, default=10)
-@click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/TransR',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def transr(folds,
-           epochs,
-           neg_ent,
-           neg_rel,
-           bern,
-           workers,
-           ent_dim,
-           rel_dim,
-           margin,
-           out,
-           file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Ent Dimensionality: {}".format(ent_dim))
-    click.echo("Rel Dimensionality: {}".format(rel_dim))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        TransR,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        ent_dim=ent_dim,
-        rel_dim=rel_dim,
-        margin=margin,
-    )
-
-    checkpoint_path = Path('./checkpoints/TransR')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/TransR'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/TransR.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/TransR.npy".format(out_path), embedding.get_ent_embeddings())
-
-
-@cli.command(help='Calculate TransH embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/TransH',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def transh(folds,
-           epochs,
-           neg_ent,
-           neg_rel,
-           bern,
-           workers,
-           dims,
-           margin,
-           out,
-           file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        TransH,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # TransH-specific
-        margin=margin,  # TransH-specific
-    )
-
-    checkpoint_path = Path('./checkpoints/TransH')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/TransH'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/TransH.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/TransH.npy".format(out_path), embedding.get_ent_embeddings())
-
-
-@cli.command(help='Calculate TransD embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/TransD',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def transd(folds,
-           epochs,
-           neg_ent,
-           neg_rel,
-           bern,
-           workers,
-           dims,
-           margin,
-           out,
-           file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        TransD,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # TransE-specific
-        margin=margin,  # TransE-specific
-    )
-
-    checkpoint_path = Path('./checkpoints/TransD')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/TransD'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/TransD.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/TransD.npy".format(out_path), embedding.get_ent_embeddings())
-
-
 @cli.command(help='Calculate TransE embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
+@click.option('-m', '--model', default='TransE', help='The model to be used for calculating the embeddings')
+@click.option('-nb', '--n_batches', type=int, default=20, help='Number of batches to be used')
 @click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
 @click.option('-ne', '--neg_ent', type=int, default=1)
 @click.option('-nr', '--neg_rel', type=int, default=0)
@@ -240,45 +44,46 @@ def transd(folds,
 @click.option('-opt', '--optimizer', default='SGD', help='The optimizer to be used: SGD, Adagrad, Adadelta, Adam')
 @click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
 @click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/TransE',
+@click.option('-o', '--out', type=str, default='./embeddings',
               help='Output directory in which the generated embeddings are to be stored')
 @click.option('-j', '--json', default=False)
 @click.argument('file_path')
-def transe(folds,
-           epochs,
-           neg_ent,
-           neg_rel,
-           bern,
-           workers,
-           optimizer,
-           dims,
-           margin,
-           out,
-           json,
-           file_path):
+def compute(model,
+            n_batches,
+            epochs,
+            neg_ent,
+            neg_rel,
+            bern,
+            workers,
+            optimizer,
+            dims,
+            margin,
+            out,
+            json,
+            file_path):
     """Initializes the repository."""
     dataset = Dataset(filename=file_path)
     file_path = Path(file_path)
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Optimizer: {}".format(optimizer))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
+    click.echo(f"Knowledge Base: {file_path}")
+    click.echo(f"Batch number: {n_batches} => {int(dataset.size / n_batches)} total batch size")
+    click.echo(f"Epochs: {epochs}")
+    click.echo(f"Neg_Ent: {neg_ent}")
+    click.echo(f"Neg_Rel: {neg_rel}")
+    click.echo(f"bern: {bern}")
+    click.echo(f"Workers: {workers}")
+    click.echo(f"Optimizer: {optimizer}")
+    click.echo(f"Dimensionality: {dims}")
+    click.echo(f"Margin: {margin}")
+    click.echo(f"Output directory: {out}")
     click.echo("-----------------------------------------------")
 
     embedding = Embedding(
         dataset,
-        TransE,
-        folds=folds,
+        get_model(model),
+        folds=n_batches,
         epochs=epochs,
         neg_ent=neg_ent,
         neg_rel=neg_rel,
@@ -290,322 +95,27 @@ def transe(folds,
         out_path=out
     )
 
-    checkpoint_path = Path('./checkpoints/TransE')
-    out_path = Path(out)
+    checkpoint_path = Path(f'./checkpoints/{model}')
+    out_path = Path(f'{out}/{model}/{dataset.name}')
 
     if not out_path.exists():
+        click.echo(f'Creating output path: {out_path}')
         out_path.mkdir(parents=True)
 
     # Train the model. It is saved in the process.
     if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
+        click.echo(f'Creating checkpoint directory: {checkpoint_path}')
         checkpoint_path.mkdir(parents=True)
 
-    embedding.train(prefix='{}/TransE'.format(checkpoint_path))
+    embedding.train(prefix=str(checkpoint_path / dataset.name))
 
     # Save the embedding to a JSON file
     if json:
         embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.json")
 
-    # Save the embedding as numpy file
+    # Save the embedding as numpy (.npz) file
     archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
     embedding.save_to_npz(archive_name)
-
-
-@cli.command(help='Calculate ComplEx embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-we', '--weight', type=float, default=0.0001)
-@click.option('-o', '--out', type=str, default='./embeddings/ComplEx',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def complex(folds,
-            epochs,
-            neg_ent,
-            neg_rel,
-            bern,
-            workers,
-            dims,
-            weight,
-            out,
-            file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Weight: {}".format(weight))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        ComplEx,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # ComplEx-specific
-        weight=weight,  # ComplEx-specific
-    )
-
-    checkpoint_path = Path('./checkpoints/ComplEx')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/ComplEx'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/ComplEx.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/ComplEx.npy".format(out_path), embedding.get_ent_embeddings())
-
-
-@cli.command(help='Calculate DistMult embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-we', '--weight', type=float, default=0.0001)
-@click.option('-o', '--out', type=str, default='./embeddings/DistMult',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def distmult(folds,
-             epochs,
-             neg_ent,
-             neg_rel,
-             bern,
-             workers,
-             dims,
-             weight,
-             out,
-             file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Weight: {}".format(weight))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        DistMult,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # DistMult-specific
-        weight=weight,  # DistMult-specific
-    )
-
-    checkpoint_path = Path('./checkpoints/DistMult')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/DistMult'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/DistMult.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/DistMult.npy".format(out_path), embedding.get_ent_embeddings())
-
-
-@cli.command(help='Calculate HolE embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/HolE',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.option('-j', '--json', default=False)
-@click.argument('file_path')
-def hole(folds,
-         epochs,
-         neg_ent,
-         neg_rel,
-         bern,
-         workers,
-         dims,
-         margin,
-         out,
-         json,
-         file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-    file_path = Path(file_path)
-
-    click.echo('')
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        HolE,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # TransE-specific
-        margin=margin,  # TransE-specific
-        out_path=out
-    )
-
-    checkpoint_path = Path('./checkpoints/HolE')
-    out_path = Path(out)
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/HolE'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    if json:
-        embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_hole_embs.json")
-
-    # Save the embedding as numpy file
-    # Save the embedding as numpy file
-    archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_hol_e_embs.npz'
-    embedding.save_to_npz(archive_name)
-
-
-@cli.command(help='Calculate RESCAL embeddings for knowledge base')
-@click.option('-f', '--folds', type=int, default=20)
-@click.option('-e', '--epochs', type=int, default=20, help='Number of training epochs')
-@click.option('-ne', '--neg_ent', type=int, default=1)
-@click.option('-nr', '--neg_rel', type=int, default=0)
-@click.option('-b', '--bern', type=bool, default=False)
-@click.option('-w', '--workers', type=int, default=4, help='Number of workers that will be used during training')
-@click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
-@click.option('-m', '--margin', type=float, default=1.0)
-@click.option('-o', '--out', type=str, default='./embeddings/RESCAL',
-              help='Output directory in which the generated embeddings are to be stored')
-@click.argument('file_path')
-def rescal(folds,
-           epochs,
-           neg_ent,
-           neg_rel,
-           bern,
-           workers,
-           dims,
-           margin,
-           out,
-           file_path):
-    """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
-
-    click.echo("Start training using the following parameters: ")
-    click.echo("-----------------------------------------------")
-    click.echo("Knowledge Base: {}".format(file_path))
-    click.echo("Folds: {}".format(folds))
-    click.echo("Epochs: {}".format(epochs))
-    click.echo("Neg_Ent: {}".format(neg_ent))
-    click.echo("Neg_Rel: {}".format(neg_rel))
-    click.echo("bern: {}".format(bern))
-    click.echo("Workers: {}".format(workers))
-    click.echo("Dimensionality: {}".format(dims))
-    click.echo("Margin: {}".format(margin))
-    click.echo("Output directory: {}".format(out))
-    click.echo("-----------------------------------------------")
-
-    embedding = Embedding(
-        dataset,
-        RESCAL,
-        folds=folds,
-        epochs=epochs,
-        neg_ent=neg_ent,
-        neg_rel=neg_rel,
-        bern=bern,
-        workers=workers,
-        dimension=dims,  # RESCAL-specific
-        margin=margin,  # RESCAL-specific
-    )
-
-    checkpoint_path = Path('./checkpoints/RESCAL')
-    out_path = Path(out)
-
-    # Train the model. It is saved in the process.
-    if not checkpoint_path.exists():
-        click.echo('Creating checkpoint directory: {}'.format(checkpoint_path))
-        checkpoint_path.mkdir(parents=True)
-
-    embedding.train(prefix='{}/RESCAL'.format(checkpoint_path))
-
-    if not out_path.exists():
-        out_path.mkdir(parents=True)
-
-    # Save the embedding to a JSON file
-    embedding.save_to_json("{}/RESCAL.json".format(out_path))
-    # Save the embedding as numpy file
-    np.save("{}/RESCAL.npy".format(out_path), embedding.get_ent_embeddings())
 
 
 if __name__ == '__main__':
