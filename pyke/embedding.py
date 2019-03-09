@@ -172,6 +172,12 @@ class Embedding:
         """
         self.__config.save_parameters(path)
 
+    def get_parameters(self):
+        """
+        Get all parameters
+        """
+        return self.__config.get_parameters('list')
+
     def save_to_npz(self, path: str):
         """
         Saves indices and embeddings into a compressed numpy file (.npz).

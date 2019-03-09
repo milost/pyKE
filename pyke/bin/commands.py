@@ -109,6 +109,8 @@ def compute(model,
 
     embedding.train(prefix=str(checkpoint_path / dataset.name))
 
+    # print(embedding.get_parameters())
+
     # Save the embedding to a JSON file
     if json:
         embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.json")
