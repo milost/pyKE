@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import ctypes
 from pathlib import Path
+from typing import Optional, Tuple
+
+import numpy as np
+from tqdm import tqdm
 
 from pyke.library import Library
 from pyke.parser import NTriplesParser
-from tqdm import tqdm
 
 
 def parse_idx_file(path: str):
@@ -58,8 +61,12 @@ class Dataset(object):
         """
         self.__library = Library.get_library(temp_dir)
 
+        if filename:
+            self.name = Path(filename).stem
+        else:
+            self.name = filename
+
         self.size = 0
-        self.name = Path(filename).stem
         self.benchmark_dir = ''
         self.ent_count = 0
         self.rel_count = 0
@@ -74,7 +81,8 @@ class Dataset(object):
             parser.parse()
 
             self.benchmark_dir = parser.output_dir if parser.output_dir[:-1] == "/" else parser.output_dir + "/"
-            self.__library.setInPath(ctypes.create_string_buffer(self.benchmark_dir.encode(), len(self.benchmark_dir) * 2))
+            self.__library.setInPath(
+                ctypes.create_string_buffer(self.benchmark_dir.encode(), len(self.benchmark_dir) * 2))
             self.__library.importTrainFiles()
             self.size = parser.train_count
             self.ent_count = parser.ent_count
@@ -89,7 +97,7 @@ class Dataset(object):
 
         if generate_valid_test:
             self.__library.importTestFiles()
-            self.__library.importTypeFiles()
+            # self.__library.importTypeFiles()
 
         self.generate_valid_test = generate_valid_test
 
@@ -109,17 +117,61 @@ class Dataset(object):
             self._id2relation = {v: k for k, v in self.relation2id.items()}
         return self._id2relation
 
-    def get_entity_id(self, entity):
-        return self.entity2id[entity]
+    def get_entity_id(self, entity: str) -> Optional[int]:
+        """
+        Returns the id of the passed in entity
+        :param entity: the entity for which the id is to be retrieved
+        :return: the id of the entity or None
+        """
+        try:
+            return self.entity2id[entity]
+        except KeyError:
+            return None
 
-    def get_entity(self, eid):
-        return self.id2entity[eid]
+    def get_entity(self, entity_id: int) -> Optional[str]:
+        """
+        Retrieve the entity belonging to the passed in id
+        :param entity_id: the entity id to be translated
+        :return: the corresponding entity or None
+        """
+        try:
+            return self.id2entity[entity_id]
+        except KeyError:
+            return None
 
-    def get_relation_id(self, relation):
-        return self.relation2id[relation]
+    def get_relation_id(self, relation: str) -> Optional[int]:
+        """
+        Retrieve the id of the given relation
+        :param relation: the relation for which the id is to be retrieved
+        :return: the id of the relation or None
+        """
+        try:
+            return self.relation2id[relation]
+        except KeyError:
+            return None
 
-    def get_relation(self, rid):
-        return self.id2relation[rid]
+    def get_relation(self, rid: int) -> Optional[str]:
+        """
+        Retrieve the relationship belonging to the passed in id
+        :param rid: the relationship id to be translated
+        :return: the corresponding relationship or None
+        """
+        try:
+            return self.id2relation[rid]
+        except KeyError:
+            return None
+
+    def translate_int_triple(self, triple: Tuple[int, int, int]) -> Tuple[str, str, str]:
+        """
+        Translates an integer triple such as (3,4,5) int its entity presentation
+        (i.e.<Springfield, Illinois, locatedIn>)
+        :param triple: the triple to be translated
+        :return: the translated triple
+        """
+        head = self.get_relation(triple[0])
+        rel = self.get_relation(triple[2])
+        tail = self.get_relation(triple[1])
+        return head, tail, rel
 
     def query(self, head, tail, relation):
         """
@@ -156,6 +208,38 @@ class Dataset(object):
         #     self.__library.query_rel(head, tail, get_array_pointer(relations))
         #     return relations
         # raise NotImplementedError('querying single facts')
+
+    def to_npz(self, out_path):
+        """
+        Saves the dataset to an numpy npz format.
+        :param out_path: the path to save the dataset to
+        """
+        np.savez_compressed(out_path,
+                            entity2id=self.entity2id,
+                            relation2id=self.relation2id,
+                            train_set=self.train_set,
+                            test_set=self.test_set,
+                            valid_set=self.valid_set,
+                            ent_count=self.ent_count,
+                            rel_count=self.rel_count,
+                            shape=self.shape,
+                            size=self.size)
+
+    @classmethod
+    def from_npz(cls, path: str) -> 'Dataset':
+        with np.load(path) as data:
+            dataset = cls()
+            dataset.train_set = data['train_set']
+            dataset.entity2id = data['entity2id'].item()
+            dataset.relation2id = data['relation2id'].item()
+            dataset.train_set = data['train_set']
+            dataset.test_set = data['test_set']
+            dataset.valid_set = data['valid_set']
+            dataset.ent_count = data['ent_count'].item()
+            dataset.rel_count = data['rel_count'].item()
+            dataset.shape = (data['shape'][0], data['shape'][1])
+            dataset.size = data['size'].item()
+            return dataset
 
     @staticmethod
     def read_benchmark(filename):

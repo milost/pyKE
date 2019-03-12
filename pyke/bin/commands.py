@@ -62,7 +62,10 @@ def compute(model,
             json,
             file_path):
     """Initializes the repository."""
-    dataset = Dataset(filename=file_path)
+    # dataset = Dataset(filename=file_path)
+    dataset = Dataset.from_npz('/Users/milost/Code/Python/pyKE/resources/test.npz')
+    # dataset.to_npz(out_path='/Users/milost/Code/Python/pyKE/resources/test.npz')
+
     file_path = Path(file_path)
 
     click.echo("Start training using the following parameters: ")
@@ -107,7 +110,10 @@ def compute(model,
         click.echo(f'Creating checkpoint directory: {checkpoint_path}')
         checkpoint_path.mkdir(parents=True)
 
-    embedding.train(prefix=str(checkpoint_path / dataset.name))
+    # embedding.train(prefix=str(checkpoint_path / dataset.name))
+    results = embedding.evaluate_embeddings(rankings='/Users/milost/Code/Python/pyKE/resources/predictions.csv')
+    print(results)
+
 
     # print(embedding.get_parameters())
 

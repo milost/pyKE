@@ -4,6 +4,8 @@ import os
 import sys
 
 import numpy as np
+import pandas as pd
+from tqdm import tqdm
 
 from pyke import models
 from pyke.dataset import Dataset
@@ -51,6 +53,7 @@ class Embedding:
         # used to provide easier access to embeddings.
         self.entity_embeddings = None
         self.relationship_embeddings = None
+        self.rankings: pd.DataFrame = None
         self.out_path = out_path
 
         # Apply kwargs
@@ -184,10 +187,11 @@ class Embedding:
         :param path: where to save the compressed archive
         """
         np.savez_compressed(path,
-                            entity2id=self.dataset.entity2id,
-                            relation2id=self.dataset.relation2id,
                             entity_embeddings=self.get_entity_embeddings(),
                             relationship_embeddings=self.get_relationship_embeddings())
+
+        if self.rankings is not None:
+            self.rankings.to_
 
     @classmethod
     def load_from_npz(cls, path: str) -> 'Embedding':
@@ -233,35 +237,40 @@ class Embedding:
             raise NotImplementedError("Filtered meanrank not implemented")
 
         ranks = []
-        triples = self.get_validation_triples()
-        last_percent = 0.0
-        count = len(triples)
+        table = []
+        column_headers = ['head_id', 'tail_id', 'rel_id']
+        if head:
+            column_headers.append('head_rank')
+        if tail:
+            column_headers.append('tail_rank')
+        if label:
+            column_headers.append('rel_rank')
 
-        start_time = datetime.datetime.now()
-        sys.stdout.write("Calculating mean rank ...")
-        for idx, (head_id, tail_id, label_id) in enumerate(triples):
+        triples = self.get_validation_triples()
+
+        for (head_id, tail_id, label_id) in tqdm(triples, desc='Calculating rankings'):
+            row = [head_id, tail_id, label_id]
+
             value = self.predict(head_id, tail_id, label_id)
             if head:
                 predictions = self.predict(None, tail_id, label_id)
                 rank = get_rank(predictions, value)
+                row.append(rank)
                 ranks.append(rank)
             if tail:
                 predictions = self.predict(head_id, None, label_id)
                 rank = get_rank(predictions, value)
+                row.append(rank)
                 ranks.append(rank)
             if label:
                 predictions = self.predict(head_id, tail_id, None)
                 rank = get_rank(predictions, value)
+                row.append(label)
                 ranks.append(rank)
+            table.append(row)
 
-            percent = idx * 100.0 / count
-            if percent > last_percent:
-                sys.stdout.write("\rCalculating mean rank ... {:.2f} %".format(percent))
-                sys.stdout.flush()
-                last_percent = percent
-
-        sys.stdout.write("\rCalculating mean rank ... done in {}\n".format(datetime.datetime.now() - start_time))
-        return np.array(ranks).mean()
+        self.rankings = pd.DataFrame(table, columns=column_headers)
+        return np.array(ranks).mean(), self.rankings
 
     def hits_at_k(self, k: int, filtered: bool = False):
         """
@@ -311,6 +320,29 @@ class Embedding:
             return self.entity_embeddings[entity_id]
         else:
             return None
+
+    def evaluate_embeddings(self, rankings=None, k=10):
+        if rankings is None:
+            if self.rankings is None:
+                self.meanrank()
+        else:
+            self.rankings = pd.read_csv(rankings)
+        results = {}
+
+        head_hits_at_n = len(self.rankings.head_rank[self.rankings.head_rank < k])
+        mean_head_hits_at_n = head_hits_at_n / len(self.rankings.head_rank)
+        results[f'head_hits_at_{k}'] = head_hits_at_n
+        results[f'mean_head_hits_at_{k}'] = mean_head_hits_at_n
+
+        tail_hits_at_n = len(self.rankings.tail_rank[self.rankings.tail_rank < k])
+        mean_tail_hits_at_n = tail_hits_at_n / len(self.rankings.tail_rank)
+        results[f'tail_hits_at_{k}'] = tail_hits_at_n
+        results[f'mean_tail_hits_at_{k}'] = mean_tail_hits_at_n
+
+        rank_sum = (self.rankings.head_rank + self.rankings.tail_rank).sum()
+        results['mean_rank'] = rank_sum / (2*len(self.rankings.head_rank))
+
+        return results
 
     def get_parameters(self):
         """
