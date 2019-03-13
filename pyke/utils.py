@@ -63,6 +63,17 @@ def get_rank(predictions: np.array, value: float):
     return len(smaller_predictions[0]) + 1
 
 
+def get_rank_old(predictions: np.array, value: float):
+    """
+    Helper function. Returns the index of value in predictions, if predictions were sorted ascending.
+
+    :param predictions: list of prediction values
+    :param value: value to look for
+    :return: index of the value (i.e. number of predictions smaller than value)
+    """
+    return (predictions > value).sum() + 1
+
+
 def calc_metrics(rank_predictions=None, k=10):
     """
     Computes mean rank and hits@k score
@@ -76,20 +87,33 @@ def calc_metrics(rank_predictions=None, k=10):
         rankings = rank_predictions
 
     results = []
-    column_headers = []
-    column_names = [column_name for column_name in list(rankings) if column_name.endswith("_rank")]
+    column_headers = [
+        'mean_rank',
+        'mrr',
+        f'hits_at_{k}'
+    ]
 
-    for column_name in column_names:
-        column_headers.append(f'{column_name.rstrip("_rank")}_hits_at_{k}')
-        column_headers.append(f'{column_name.rstrip("_rank")}_mean_hits_at_{k}')
+    head_k = (rankings.head_rank <= k).astype(int)
+    tail_k = (rankings.tail_rank <= k).astype(int)
+    head_n_tail = head_k + tail_k
+    total = head_n_tail.sum()
+    factor = 100 / (2*len(rankings))
+    hits_at_k = factor * total
 
-        hits_at_n = len(rankings[column_name][rankings[column_name] < k])
-        mean_hits_at_n = hits_at_n / len(rankings[column_name])
-        results.append(hits_at_n)
-        results.append(mean_hits_at_n)
+    mean_rank = (rankings.head_rank + rankings.tail_rank).sum() / len(rankings)
 
-    column_headers.append('mean_rank')
-    rank_sum = rankings[column_names].sum().sum()
-    results.append(rank_sum / (2 * len(rankings[column_names[0]])))
+    # Mean Reciprocal Rank (MRR)
+    factor = 1 / (2 * len(rankings))
+    head = 1 / rankings.head_rank
+    tail = 1 / rankings.tail_rank
+    total = (head + tail).sum()
+    mrr = factor * total
+
+    results.append(mean_rank)
+    results.append(mrr)
+    results.append(hits_at_k)
 
     return pd.DataFrame([results], columns=column_headers)
+
+
+

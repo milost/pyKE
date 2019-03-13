@@ -123,7 +123,6 @@ def compute(model,
     if not (out_path / f'{dataset.name}_dataset.npz').exists():
         dataset.to_npz(out_path / f'{dataset.name}_dataset.npz')
 
-
     embedding.train(prefix=str(checkpoint_path / dataset.name))
 
     # Save the embedding to a JSON file
@@ -137,7 +136,7 @@ def compute(model,
         rank_predictions = embedding.get_predictions()
         rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
 
-        results = embedding.calc_metrics(rank_predictions=rank_predictions)
+        results = calc_metrics(rank_predictions=rank_predictions)
         print(results)
 
 
