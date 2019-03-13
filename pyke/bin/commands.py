@@ -1,7 +1,14 @@
 from pathlib import Path
 
 import click
+import os
+import re
+import pandas as pd
 
+import plotly.plotly as py
+import plotly.graph_objs as go
+
+from pyke.utils import calc_metrics
 from pyke.dataset import Dataset
 from pyke.embedding import Embedding
 from pyke.models import TransE, TransD, TransH, TransR, HolE, ComplEx, DistMult, RESCAL
@@ -44,6 +51,7 @@ def cli():
 @click.option('-opt', '--optimizer', default='SGD', help='The optimizer to be used: SGD, Adagrad, Adadelta, Adam')
 @click.option('-d', '--dims', type=int, default=50, help='Dimensionality of the generated embeddings')
 @click.option('-m', '--margin', type=float, default=1.0)
+@click.option('-eva', '--eval', type=bool, default=False)
 @click.option('-o', '--out', type=str, default='./embeddings',
               help='Output directory in which the generated embeddings are to be stored')
 @click.option('-j', '--json', default=False)
@@ -58,15 +66,16 @@ def compute(model,
             optimizer,
             dims,
             margin,
+            eval,
             out,
             json,
             file_path):
     """Initializes the repository."""
-    # dataset = Dataset(filename=file_path)
-    dataset = Dataset.from_npz('/Users/milost/Code/Python/pyKE/resources/test.npz')
-    # dataset.to_npz(out_path='/Users/milost/Code/Python/pyKE/resources/test.npz')
-
     file_path = Path(file_path)
+    if file_path.suffix == '.npz':
+        dataset = Dataset.from_npz(file_path)
+    else:
+        dataset = Dataset(filename=str(file_path), generate_valid_test=True)
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
@@ -110,20 +119,29 @@ def compute(model,
         click.echo(f'Creating checkpoint directory: {checkpoint_path}')
         checkpoint_path.mkdir(parents=True)
 
-    # embedding.train(prefix=str(checkpoint_path / dataset.name))
-    results = embedding.evaluate_embeddings(rankings='/Users/milost/Code/Python/pyKE/resources/predictions.csv')
-    print(results)
+    # if dataset is not written out, do so
+    if not (out_path / f'{dataset.name}_dataset.npz').exists():
+        dataset.to_npz(out_path / f'{dataset.name}_dataset.npz')
 
-    # print(embedding.get_parameters())
+
+    embedding.train(prefix=str(checkpoint_path / dataset.name))
 
     # Save the embedding to a JSON file
     if json:
-        embedding.save_to_json(f"{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.json")
-
+        embedding.save_to_json(f'{out_path}/{dataset.name}_{model.lower()}_{optimizer.lower()}_{dims}_embs.json')
     # Save the embedding as numpy (.npz) file
-    archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
+    archive_name = f'{out_path}/{dataset.name}_{model.lower()}_{optimizer.lower()}_{dims}_embs.npz'
     embedding.save_to_npz(archive_name)
 
+    if eval:
+        rank_predictions = embedding.get_predictions()
+        rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
+
+        results = embedding.calc_metrics(rank_predictions=rank_predictions)
+        print(results)
+
+
+#
 
 @cli.command(help='Build dataset from a file containing knowledge base triples')
 @click.option('-g', '--generate_validation_test', type=bool, default=False, help='Generate validation and test sets')
@@ -135,6 +153,103 @@ def build_dataset(generate_validation_test,
     """Initializes the repository."""
     dataset = Dataset(filename=file_in, generate_valid_test=generate_validation_test)
     dataset.to_npz(out_path=file_out)
+
+
+@cli.command(help='Compute evaluation metrics using all predictions in the specified folder')
+@click.option('-k', type=int, default=10, help='The k value used for computing Hits@k')
+@click.argument('folder_path')
+def compute_eval_metrics(k, folder_path):
+    folder_path = Path(folder_path)
+    exclude = ['metrics.csv']
+    regex = r"(\d+).csv"
+
+    predictions = []
+    for dir_name, subdirs, files in os.walk(folder_path):
+        print('Found directory: %s' % dir_name)
+        for file in files:
+            if file.endswith('.csv') and file not in exclude:
+                predictions.append(file)
+    predictions = sorted(predictions)
+
+    data = []
+    column_headers = None
+    for file in predictions:
+        row = []
+        matches = re.finditer(regex, file, re.MULTILINE)
+        for match in matches:
+            row.append(int(match.group(1)))
+
+        df = pd.read_csv(str(folder_path / file))
+        metrics = calc_metrics(rank_predictions=df, k=k)
+        if column_headers is None:
+            tmp = ['epochs']
+            tmp.extend(list(metrics))
+            column_headers = tmp
+
+        for column in list(metrics):
+            row.append(metrics[column].values[0])
+        data.append(row)
+
+    joined_df = pd.DataFrame(data, columns=column_headers)
+    joined_df.to_csv(str(folder_path / 'metrics.csv'))
+
+
+@cli.command(help='Plot evaluation metrics')
+@click.option('-f', '--filename', default='dummy', help='filename used with plotly')
+@click.option('-f', '--plot', default='hits_at_k', help='filename used with plotly')
+@click.argument('folder_path')
+def plot_eval_metrics(filename, plot, folder_path):
+    folder_path = Path(folder_path)
+    metrics = pd.read_csv(str(folder_path))
+    print(metrics)
+
+    data = []
+    title = ''
+    if plot == 'hits_at_k':
+        title = 'Total Hits@K'
+        head_hits_at_k = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['head_hits_at_10'],
+            name='Head Hits@10',
+        )
+
+        tail_hits_at_k = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['tail_hits_at_10'],
+            name='Tail Hits@10'
+        )
+        data = [head_hits_at_k, tail_hits_at_k]
+    elif plot == 'mean_hits_at_k':
+        title = 'Percentage Hits@K'
+        head_hits_at_k = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['head_mean_hits_at_10'],
+            name='Head Hits@10',
+        )
+
+        tail_hits_at_k = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['tail_mean_hits_at_10'],
+            name='Tail Hits@10'
+        )
+        data = [head_hits_at_k, tail_hits_at_k]
+    elif plot == 'mean_rank':
+        title = 'Plot of mean rank with increasing epochs'
+        mean_rank = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mean_rank'],
+            name='Mean Rank'
+        )
+        data = [mean_rank]
+
+    # Edit the layout
+    layout = dict(title=title,
+                  xaxis=dict(title='Epochs'),
+                  yaxis=dict(title='Performance'),
+                  )
+
+    fig = dict(data=data, layout=layout)
+    py.plot(fig, filename=filename)
 
 
 if __name__ == '__main__':

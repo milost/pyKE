@@ -2,6 +2,7 @@
 import hashlib
 
 import numpy as np
+import pandas as pd
 
 
 def split_nt_line(line: str):
@@ -60,3 +61,35 @@ def get_rank(predictions: np.array, value: float):
     """
     smaller_predictions = np.where(predictions < value)
     return len(smaller_predictions[0]) + 1
+
+
+def calc_metrics(rank_predictions=None, k=10):
+    """
+    Computes mean rank and hits@k score
+    :param rank_predictions:
+    :param k:
+    :return:
+    """
+    if isinstance(rank_predictions, str):
+        rankings = pd.read_csv(rank_predictions)
+    else:
+        rankings = rank_predictions
+
+    results = []
+    column_headers = []
+    column_names = [column_name for column_name in list(rankings) if column_name.endswith("_rank")]
+
+    for column_name in column_names:
+        column_headers.append(f'{column_name.rstrip("_rank")}_hits_at_{k}')
+        column_headers.append(f'{column_name.rstrip("_rank")}_mean_hits_at_{k}')
+
+        hits_at_n = len(rankings[column_name][rankings[column_name] < k])
+        mean_hits_at_n = hits_at_n / len(rankings[column_name])
+        results.append(hits_at_n)
+        results.append(mean_hits_at_n)
+
+    column_headers.append('mean_rank')
+    rank_sum = rankings[column_names].sum().sum()
+    results.append(rank_sum / (2 * len(rankings[column_names[0]])))
+
+    return pd.DataFrame([results], columns=column_headers)

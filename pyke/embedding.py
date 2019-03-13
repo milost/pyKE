@@ -1,7 +1,5 @@
-import datetime
 import logging
 import os
-import sys
 
 import numpy as np
 import pandas as pd
@@ -27,7 +25,7 @@ class Embedding:
 
     def __init__(self, dataset: Dataset = None,
                  model_class: type = None,
-                 out_path = None,
+                 out_path=None,
                  **kwargs):
         self.dataset = dataset or Dataset()
         self.model_class = model_class
@@ -190,15 +188,13 @@ class Embedding:
                             entity_embeddings=self.get_entity_embeddings(),
                             relationship_embeddings=self.get_relationship_embeddings())
 
-        if self.rankings is not None:
-            self.rankings.to_
-
     @classmethod
-    def load_from_npz(cls, path: str) -> 'Embedding':
+    def load_from_npz(cls, path: str, dataset: Dataset = None) -> 'Embedding':
         with np.load(path) as data:
-            embs = cls(Dataset(), None)
-            embs.dataset.entity2id = data['entity2id'].item()
-            embs.dataset.relation2id = data['relation2id'].item()
+            if dataset is not None:
+                embs = cls(dataset, None)
+            else:
+                embs = cls(Dataset(), None)
             embs.entity_embeddings = data['entity_embeddings']
             try:
                 embs.relationship_embeddings = data['relationship_embeddings']
@@ -229,14 +225,13 @@ class Embedding:
         """
         return self.dataset.valid_set if self.dataset.generate_valid_test else self.dataset.train_set
 
-    def meanrank(self, filtered=False, head=True, tail=True, label=False):
+    def get_predictions(self, filtered=False, head=True, tail=True, label=False):
         """
         Computes the mean rank of the embedding.
         """
         if filtered:
             raise NotImplementedError("Filtered meanrank not implemented")
 
-        ranks = []
         table = []
         column_headers = ['head_id', 'tail_id', 'rel_id']
         if head:
@@ -256,21 +251,18 @@ class Embedding:
                 predictions = self.predict(None, tail_id, label_id)
                 rank = get_rank(predictions, value)
                 row.append(rank)
-                ranks.append(rank)
             if tail:
                 predictions = self.predict(head_id, None, label_id)
                 rank = get_rank(predictions, value)
                 row.append(rank)
-                ranks.append(rank)
             if label:
                 predictions = self.predict(head_id, tail_id, None)
                 rank = get_rank(predictions, value)
-                row.append(label)
-                ranks.append(rank)
+                row.append(rank)
             table.append(row)
 
         self.rankings = pd.DataFrame(table, columns=column_headers)
-        return np.array(ranks).mean(), self.rankings
+        return self.rankings
 
     def hits_at_k(self, k: int, filtered: bool = False):
         """
@@ -316,33 +308,43 @@ class Embedding:
         except KeyError:
             entity_id = None
 
+        # use entity_id to get embedding
         if entity_id:
             return self.entity_embeddings[entity_id]
         else:
             return None
 
-    def evaluate_embeddings(self, rankings=None, k=10):
-        if rankings is None:
+    def calc_metrics(self, rank_predictions=None, k=10):
+        """
+        Computes mean rank and hits@k score
+        :param rank_predictions:
+        :param k:
+        :return:
+        """
+        if rank_predictions is None:
             if self.rankings is None:
-                self.meanrank()
-        else:
-            self.rankings = pd.read_csv(rankings)
-        results = {}
+                self.get_predictions()
+        elif isinstance(rank_predictions, str):
+            self.rankings = pd.read_csv(rank_predictions)
 
-        head_hits_at_n = len(self.rankings.head_rank[self.rankings.head_rank < k])
-        mean_head_hits_at_n = head_hits_at_n / len(self.rankings.head_rank)
-        results[f'head_hits_at_{k}'] = head_hits_at_n
-        results[f'mean_head_hits_at_{k}'] = mean_head_hits_at_n
+        results = []
+        column_headers = []
+        column_names = [column_name for column_name in list(self.rankings) if column_name.endswith("_rank")]
 
-        tail_hits_at_n = len(self.rankings.tail_rank[self.rankings.tail_rank < k])
-        mean_tail_hits_at_n = tail_hits_at_n / len(self.rankings.tail_rank)
-        results[f'tail_hits_at_{k}'] = tail_hits_at_n
-        results[f'mean_tail_hits_at_{k}'] = mean_tail_hits_at_n
+        for column_name in column_names:
+            column_headers.append(f'{column_name.rstrip("_rank")}_hits_at_{k}')
+            column_headers.append(f'{column_name.rstrip("_rank")}_mean_hits_at_{k}')
 
-        rank_sum = (self.rankings.head_rank + self.rankings.tail_rank).sum()
-        results['mean_rank'] = rank_sum / (2*len(self.rankings.head_rank))
+            hits_at_n = len(self.rankings[column_name][self.rankings[column_name] < k])
+            mean_hits_at_n = hits_at_n / len(self.rankings[column_name])
+            results.append(hits_at_n)
+            results.append(mean_hits_at_n)
 
-        return results
+        column_headers.append('mean_rank')
+        rank_sum = self.rankings[column_names].sum().sum()
+        results.append(rank_sum / (2 * len(self.rankings[column_names[0]])))
+
+        return pd.DataFrame([results], columns=column_headers)
 
     def get_parameters(self):
         """

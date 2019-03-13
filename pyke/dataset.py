@@ -260,11 +260,12 @@ class Dataset(object):
                             ent_count=self.ent_count,
                             rel_count=self.rel_count,
                             shape=self.shape,
-                            size=self.size)
+                            size=self.size,
+                            name=self.name)
 
     @classmethod
     def from_npz(cls, path: str) -> 'Dataset':
-        with np.load(path) as data:
+        with np.load(str(path)) as data:
             dataset = cls()
             dataset.train_set = data['train_set']
             dataset.entity2id = data['entity2id'].item()
@@ -276,6 +277,7 @@ class Dataset(object):
             dataset.rel_count = data['rel_count'].item()
             dataset.shape = (data['shape'][0], data['shape'][1])
             dataset.size = data['size'].item()
+            dataset.name = data['name'].item()
             return dataset
 
     @staticmethod
