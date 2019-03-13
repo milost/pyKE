@@ -88,9 +88,9 @@ class Dataset(object):
             self.ent_count = parser.ent_count
             self.rel_count = parser.rel_count
             self.shape = self.ent_count, self.rel_count
-            self.train_set = self.read_benchmark(parser.train_file)
-            self.test_set = self.read_benchmark(parser.test_file) if generate_valid_test else []
-            self.valid_set = self.read_benchmark(parser.valid_file) if generate_valid_test else []
+            self.train_set = self.read_benchmark(parser.train_file, desc=' train set')
+            self.test_set = self.read_benchmark(parser.test_file, desc=' test set') if generate_valid_test else []
+            self.valid_set = self.read_benchmark(parser.valid_file, desc=' validation set') if generate_valid_test else []
 
             self.entity2id, self._id2entity = parse_idx_file(parser.entity_file)
             self.relation2id, self._id2relation = parse_idx_file(parser.relation_file)
@@ -106,6 +106,16 @@ class Dataset(object):
         return self.size
 
     @property
+    def entities(self):
+        for entity in self.entity2id.keys():
+            yield entity
+
+    @property
+    def relations(self):
+        for relation in self.relation2id.keys():
+            yield relation
+
+    @property
     def id2entity(self):
         if self.entity2id and not self._id2entity:
             self._id2entity = {v: k for k, v in self.entity2id.items()}
@@ -116,6 +126,21 @@ class Dataset(object):
         if self.relation2id and not self._id2relation:
             self._id2relation = {v: k for k, v in self.relation2id.items()}
         return self._id2relation
+
+    @property
+    def train_triples(self):
+        for triple in self.train_set:
+            yield triple
+
+    @property
+    def test_triples(self):
+        for triple in self.test_set:
+            yield triple
+
+    @property
+    def validation_triples(self):
+        for triple in self.valid_set:
+            yield triple
 
     def get_entity_id(self, entity: str) -> Optional[int]:
         """
@@ -168,9 +193,21 @@ class Dataset(object):
         :param triple: the triple to be translated
         :return: the translated triple
         """
-        head = self.get_relation(triple[0])
+        head = self.get_entity(triple[0])
         rel = self.get_relation(triple[2])
-        tail = self.get_relation(triple[1])
+        tail = self.get_entity(triple[1])
+        return head, tail, rel
+
+    def translate_string_triple(self, triple: Tuple[str, str, str]) -> Tuple[int, int, int]:
+        """
+        Translates a string triple such as (Springfield,Illinois,locatedIn) in its id representation
+        (i.e.(5,4,3))
+        :param triple: the triple to be translated
+        :return: the translated triple
+        """
+        head = self.get_entity_id(triple[0])
+        rel = self.get_relation_id(triple[2])
+        tail = self.get_entity_id(triple[1])
         return head, tail, rel
 
     def query(self, head, tail, relation):
@@ -242,10 +279,11 @@ class Dataset(object):
             return dataset
 
     @staticmethod
-    def read_benchmark(filename):
+    def read_benchmark(filename, desc: str = ''):
         with open(filename) as f:
             count = int(f.readline())  # Skip first line containing the number of rows
             triple_list = [(int(line.split()[0]),
                             int(line.split()[1]),
-                            int(line.split()[2])) for line in tqdm(f, total=count, desc='Reading', unit=' triples')]
+                            int(line.split()[2])) for line in tqdm(f, total=count, desc=f'Reading{desc}',
+                                                                   unit=' triples')]
         return triple_list

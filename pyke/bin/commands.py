@@ -114,7 +114,6 @@ def compute(model,
     results = embedding.evaluate_embeddings(rankings='/Users/milost/Code/Python/pyKE/resources/predictions.csv')
     print(results)
 
-
     # print(embedding.get_parameters())
 
     # Save the embedding to a JSON file
@@ -124,6 +123,18 @@ def compute(model,
     # Save the embedding as numpy (.npz) file
     archive_name = f'{out_path}/{file_path.name.rstrip(file_path.suffix)}_trans_e_embs.npz'
     embedding.save_to_npz(archive_name)
+
+
+@cli.command(help='Build dataset from a file containing knowledge base triples')
+@click.option('-g', '--generate_validation_test', type=bool, default=False, help='Generate validation and test sets')
+@click.argument('file_in')
+@click.argument('file_out')
+def build_dataset(generate_validation_test,
+                  file_in,
+                  file_out):
+    """Initializes the repository."""
+    dataset = Dataset(filename=file_in, generate_valid_test=generate_validation_test)
+    dataset.to_npz(out_path=file_out)
 
 
 if __name__ == '__main__':
