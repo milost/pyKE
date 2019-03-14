@@ -74,6 +74,18 @@ def get_rank_old(predictions: np.array, value: float):
     return (predictions > value).sum() + 1
 
 
+def calc_hits_at_n(rankings:pd.DataFrame, k=1):
+
+    head_k = (rankings.head_rank <= k).astype(int)
+    tail_k = (rankings.tail_rank <= k).astype(int)
+    head_hits_at_k = head_k.sum()
+    tail_hits_at_k = tail_k.sum()
+
+    total_hits_at_k = (head_k + tail_k).sum()
+    factor = 100 / (2 * len(rankings))
+    return head_hits_at_k, tail_hits_at_k, factor * total_hits_at_k
+
+
 def calc_metrics(rank_predictions=None, k=10):
     """
     Computes mean rank and hits@k score
@@ -88,30 +100,52 @@ def calc_metrics(rank_predictions=None, k=10):
 
     results = []
     column_headers = [
+        'mean_head_rank',
+        'mean_tail_rank',
         'mean_rank',
+        'mean_reciprocal_head_rank',
+        'mean_reciprocal_tail_rank',
         'mrr',
-        f'hits_at_{k}'
+        f'head_hits_at_1',
+        f'tail_hits_at_1',
+        f'hits_at_1',
+        f'head_hits_at_3',
+        f'tail_hits_at_3',
+        f'hits_at_3',
+        f'head_hits_at_10',
+        f'tail_hits_at_10',
+        f'hits_at_10',
     ]
 
-    head_k = (rankings.head_rank <= k).astype(int)
-    tail_k = (rankings.tail_rank <= k).astype(int)
-    head_n_tail = head_k + tail_k
-    total = head_n_tail.sum()
-    factor = 100 / (2*len(rankings))
-    hits_at_k = factor * total
+    mean_head_rank = rankings.head_rank.sum() / len(rankings)
+    mean_tail_rank = rankings.tail_rank.sum() / len(rankings)
+    mean_rank = (mean_head_rank + mean_tail_rank) / 2
 
-    mean_rank = (rankings.head_rank + rankings.tail_rank).sum() / len(rankings)
+    mean_head_r_rank = (1 / rankings.head_rank).sum() / len(rankings)
+    mean_tail_r_rank = (1 / rankings.tail_rank).sum() / len(rankings)
+    mrr = (mean_head_r_rank + mean_tail_r_rank) / 2
 
-    # Mean Reciprocal Rank (MRR)
-    factor = 1 / (2 * len(rankings))
-    head = 1 / rankings.head_rank
-    tail = 1 / rankings.tail_rank
-    total = (head + tail).sum()
-    mrr = factor * total
-
+    results.append(mean_head_rank)
+    results.append(mean_tail_rank)
     results.append(mean_rank)
+    results.append(mean_head_r_rank)
+    results.append(mean_tail_r_rank)
     results.append(mrr)
-    results.append(hits_at_k)
+
+    head_hits_at_1, tail_hits_at_1, total_hits_at_1 = calc_hits_at_n(rankings, k=1)
+    results.append(head_hits_at_1)
+    results.append(tail_hits_at_1)
+    results.append(total_hits_at_1)
+
+    head_hits_at_3, tail_hits_at_3, total_hits_at_3 = calc_hits_at_n(rankings, k=3)
+    results.append(head_hits_at_3)
+    results.append(tail_hits_at_3)
+    results.append(total_hits_at_3)
+
+    head_hits_at_10, tail_hits_at_10, total_hits_at_10 = calc_hits_at_n(rankings, k=10)
+    results.append(head_hits_at_10)
+    results.append(tail_hits_at_10)
+    results.append(total_hits_at_10)
 
     return pd.DataFrame([results], columns=column_headers)
 

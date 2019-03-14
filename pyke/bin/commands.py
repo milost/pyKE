@@ -75,7 +75,7 @@ def compute(model,
     if file_path.suffix == '.npz':
         dataset = Dataset.from_npz(file_path)
     else:
-        dataset = Dataset(filename=str(file_path), generate_valid_test=True)
+        dataset = Dataset(train_file=str(file_path), generate_valid_test=True)
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
@@ -134,13 +134,23 @@ def compute(model,
 
     if eval:
         rank_predictions = embedding.get_predictions()
-        rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
+        #rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
 
         results = calc_metrics(rank_predictions=rank_predictions)
-        print(results)
+        if (out_path / f'{dataset.name}_metrics.csv').exists():
+            df = pd.read_csv(str(out_path / f'{dataset.name}_metrics.csv'), index_col=0)
+            prev_epochs = df.iloc[-1]['epochs']
+            results['epochs'] = int(prev_epochs + epochs)
+            df = df.append(results, ignore_index=True)
+            df.to_csv(str(out_path / f'{dataset.name}_metrics.csv'))
+            rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions_{int(prev_epochs + epochs)}.csv')
+            print(df)
+        else:
+            results['epochs'] = epochs
+            results.to_csv(str(out_path / f'{dataset.name}_metrics.csv'))
+            rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions_{epochs}.csv')
+            print(results)
 
-
-#
 
 @cli.command(help='Build dataset from a file containing knowledge base triples')
 @click.option('-g', '--generate_validation_test', type=bool, default=False, help='Generate validation and test sets')
@@ -150,7 +160,7 @@ def build_dataset(generate_validation_test,
                   file_in,
                   file_out):
     """Initializes the repository."""
-    dataset = Dataset(filename=file_in, generate_valid_test=generate_validation_test)
+    dataset = Dataset(train_file=file_in, generate_valid_test=generate_validation_test)
     dataset.to_npz(out_path=file_out)
 
 
@@ -199,39 +209,40 @@ def compute_eval_metrics(k, folder_path):
 @click.argument('folder_path')
 def plot_eval_metrics(filename, plot, folder_path):
     folder_path = Path(folder_path)
-    metrics = pd.read_csv(str(folder_path))
+    metrics = pd.read_csv(str(folder_path), index_col=0)
     print(metrics)
 
     data = []
     title = ''
     if plot == 'hits_at_k':
         title = 'Total Hits@K'
-        head_hits_at_k = go.Scatter(
+        hits_at_1 = go.Scatter(
             x=metrics['epochs'],
-            y=metrics['head_hits_at_10'],
-            name='Head Hits@10',
+            y=metrics['hits_at_1'],
+            name='Hits@1',
         )
 
-        tail_hits_at_k = go.Scatter(
+        hits_at_3 = go.Scatter(
             x=metrics['epochs'],
-            y=metrics['tail_hits_at_10'],
-            name='Tail Hits@10'
-        )
-        data = [head_hits_at_k, tail_hits_at_k]
-    elif plot == 'mean_hits_at_k':
-        title = 'Percentage Hits@K'
-        head_hits_at_k = go.Scatter(
-            x=metrics['epochs'],
-            y=metrics['head_mean_hits_at_10'],
-            name='Head Hits@10',
+            y=metrics['hits_at_3'],
+            name='Hits@3'
         )
 
-        tail_hits_at_k = go.Scatter(
+        hits_at_10 = go.Scatter(
             x=metrics['epochs'],
-            y=metrics['tail_mean_hits_at_10'],
-            name='Tail Hits@10'
+            y=metrics['hits_at_10'],
+            name='Hits@10'
         )
-        data = [head_hits_at_k, tail_hits_at_k]
+        data = [hits_at_1, hits_at_3, hits_at_10]
+    elif plot == 'mrr':
+        title = 'Mean Reciprocal Rank'
+        mrr = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mrr'],
+            name='MRR',
+        )
+
+        data = [mrr]
     elif plot == 'mean_rank':
         title = 'Plot of mean rank with increasing epochs'
         mean_rank = go.Scatter(

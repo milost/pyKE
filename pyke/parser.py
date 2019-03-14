@@ -8,10 +8,10 @@ Module contains different parsers to support multiple file types.
 import os
 import sys
 from typing import List, Dict, Tuple, Any
-from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from pyke.utils import split_nt_line, md5
 
@@ -21,7 +21,8 @@ class NTriplesParser:
     Class creates benchmark files from a N-Triples file.
     """
 
-    def __init__(self, filename: str, temp_dir: str, generate_valid_test: bool = False, fail_silently: bool = True):
+    def __init__(self, train_filename: str, temp_dir: str, generate_valid_test: bool = False,
+                 fail_silently: bool = True):
         """
         Initializes the parser and creates the `temp_dir`.
 
@@ -29,12 +30,12 @@ class NTriplesParser:
         :param temp_dir: Directory where the benchmark should be placed
         :param generate_valid_test: Flag whether a validation and a test set should be created (default False)
         """
-        self.filename = filename
+        self.filename = train_filename
         self.temp_dir = temp_dir
         self.generate_valid_test = generate_valid_test
         if not os.path.exists(self.temp_dir):
             os.mkdir(self.temp_dir)
-        self.file_hashsum = md5(filename)
+        self.file_hashsum = md5(train_filename)
         self.output_dir = os.path.join(self.temp_dir, self.file_hashsum)
         self.entity_file = os.path.join(self.output_dir, "entity2id.txt")
         self.relation_file = os.path.join(self.output_dir, "relation2id.txt")
@@ -48,7 +49,7 @@ class NTriplesParser:
         self.test_count = None
         self.fail_silently = fail_silently
 
-    def parse(self):
+    def parse(self, train_file=None, validation_file=None, test_file=None):
         """
         Creates the benchmark files. Function checks if a benchmark exists for the specified file (using an MD5
         fingerprint) and loads this benchmark. Otherwise it creates a new benchmark.
@@ -70,7 +71,10 @@ class NTriplesParser:
                 with open(self.test_file) as f:
                     self.test_count = int(f.readline())
         else:
-            self.create_benchmark()
+            if train_file is not None and validation_file is not None and test_file is not None:
+                self.create_benchmark_alt(train_file, validation_file, test_file)
+            else:
+                self.create_benchmark()
 
     @staticmethod
     def read_triples(triples_fn: str) -> List[str]:
@@ -163,7 +167,11 @@ class NTriplesParser:
         return dict_ent, dict_rel, list_triples
 
     @staticmethod
-    def convert_to_pandas(dict_ent: Dict[str, int], dict_rel: Dict[str, int], list_triples: List):
+    def convert_to_pandas(dict_ent: Dict[str, int],
+                          dict_rel: Dict[str, int],
+                          list_train_triples: List,
+                          list_validation_triples: List = None,
+                          list_test_triples: List = None):
         """
         Converts to pandas series and dataframes
 
@@ -175,8 +183,12 @@ class NTriplesParser:
         print("Converting to Pandas Datastructure ...")
         srs_ent = pd.Series(list(dict_ent.keys()), index=list(dict_ent.values())).sort_index()
         srs_rel = pd.Series(list(dict_rel.keys()), index=list(dict_rel.values())).sort_index()
-        df_triples = pd.DataFrame(list_triples)
-        return srs_ent, srs_rel, df_triples
+        df_train_triples = pd.DataFrame(list_train_triples)
+        if list_validation_triples is not None:
+            df_validation_triples = pd.DataFrame(list_validation_triples)
+        if list_test_triples is not None:
+            df_test_triples = pd.DataFrame(list_test_triples)
+        return srs_ent, srs_rel, df_train_triples, df_validation_triples, df_test_triples
 
     @staticmethod
     def partition_data(df_triples: Any, generate_valid_test: bool = False, percentile_train: float = 0.8,
@@ -256,10 +268,10 @@ class NTriplesParser:
         dict_ent, dict_rel, list_triples = self.map_triple_lines(triple_lines)
 
         # convert to pandas series and dataframe
-        srs_ent, srs_rel, df_triples = self.convert_to_pandas(dict_ent, dict_rel, list_triples)
+        srs_ent, srs_rel, df_train_triples, df_validation_triples, df_test_triples = self.convert_to_pandas(dict_ent, dict_rel, list_triples)
 
         # partition data
-        df_train, df_valid, df_test = self.partition_data(df_triples, self.generate_valid_test, 0.8, 0.5)
+        df_train, df_valid, df_test = self.partition_data(df_train_triples, self.generate_valid_test, 0.8, 0.5)
 
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
@@ -278,3 +290,133 @@ class NTriplesParser:
         self.train_count = len(df_train)
         self.test_count = len(df_test)
         self.valid_count = len(df_valid)
+
+    def create_benchmark_alt(self, train_file, valid_file, test_file):
+        """
+        Creates the benchmark from the filename given in the constructor
+        """
+        # read triples
+        train_triple_lines = self.read_triples(train_file)
+        valid_triple_lines = self.read_triples(valid_file)
+        test_triple_lines = self.read_triples(test_file)
+
+        # map triple lines
+        dict_ent, dict_rel, train_triples, validation_triples, test_triples = self.encode_triple_lines(
+            train_triple_lines,
+            valid_triple_lines,
+            test_triple_lines)
+
+        # # convert to pandas series and dataframe
+        srs_ent, srs_rel, df_train_triples, df_validation_triples, df_test_triples = self.convert_to_pandas(dict_ent, dict_rel, train_triples, validation_triples, test_triples)
+
+        # partition data
+        # df_train, df_valid, df_test = self.partition_data(df_triples, self.generate_valid_test, 0.8, 0.5)
+
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
+
+        self.save_element2id(srs_ent, self.entity_file)
+        self.save_element2id(srs_rel, self.relation_file)
+
+        # save training data and (if specified) validation and test data
+        self.save_triple2id(df_train_triples, self.train_file)
+        self.save_triple2id(df_validation_triples, self.valid_file)
+        self.save_triple2id(df_test_triples, self.test_file)
+
+        self.ent_count = len(srs_ent)
+        self.rel_count = len(srs_rel)
+        self.train_count = len(df_train_triples)
+        self.test_count = len(df_test_triples)
+        self.valid_count = len(df_validation_triples)
+
+    def lines_to_triples(self, triples: List[str]) -> List[Tuple[str, str, str]]:
+        errors = 0
+        results = []
+        for triple_line in tqdm(triples, desc='Converting triples', unit=' triples'):
+            # split it and check if it is a triple
+            try:
+                triple = split_nt_line(triple_line)
+                results.append(triple)
+            except ValueError:
+                errors += 1
+                continue
+        print(f'{errors} occurred during triple conversion')
+        return results
+
+    def encode_triples(self, triples: List[Tuple[str, str, str]], entity_idx: dict, relation_idx: dict) -> List[
+        Tuple[int, int, int]]:
+        result = []
+        for subj, pred, obj in tqdm(triples, desc='Encoding triples ...', unit=' triples'):
+            # careful: OpenKE format is "subject object relation"
+            result.append((entity_idx[subj], entity_idx[obj], relation_idx[pred]))
+        return result
+
+    def encode_triple_lines(self, train_lines: List[str], validation_lines: List[str], test_lines: List[str]):
+        """
+        Assigns each entity and each relation an id and creates a list of triples consisting of the ids.
+
+        :param triple_lines: List of Triples
+        :return: Tuple with the mapping of entity -> ID, relation -> ID and a list of the triples with the integer ids.
+        """
+        # prepare for mapping
+        entities = {}
+        relations = {}
+        ent_count = 0
+        rel_count = 0
+
+        train_triples = self.lines_to_triples(train_lines)
+        validation_triples = self.lines_to_triples(validation_lines)
+        test_triples = self.lines_to_triples(test_lines)
+
+        print('Building indices ...')
+        for subj, pred, obj in tqdm(train_triples, desc='Processing training triples', unit=' triples'):
+            if subj not in entities:
+                entities[subj] = ent_count
+                ent_count += 1
+
+            if pred not in relations:
+                relations[pred] = rel_count
+                rel_count += 1
+
+            if obj not in entities:
+                entities[obj] = ent_count
+                ent_count += 1
+
+        for subj, pred, obj in tqdm(validation_triples, desc='Processing validation triples', unit=' triples'):
+            if subj not in entities:
+                entities[subj] = ent_count
+                ent_count += 1
+
+            if pred not in relations:
+                relations[pred] = rel_count
+                rel_count += 1
+
+            if obj not in entities:
+                entities[obj] = ent_count
+                ent_count += 1
+
+        for subj, pred, obj in tqdm(test_triples, desc='Processing test triples', unit=' triples'):
+            if subj not in entities:
+                entities[subj] = ent_count
+                ent_count += 1
+
+            if pred not in relations:
+                relations[pred] = rel_count
+                rel_count += 1
+
+            if obj not in entities:
+                entities[obj] = ent_count
+                ent_count += 1
+
+        encoded_train_triples = self.encode_triples(train_triples, entities, relations)
+        encoded_validation_triples = self.encode_triples(validation_triples, entities, relations)
+        encoded_test_triples = self.encode_triples(test_triples, entities, relations)
+
+        # output results
+        print("")
+        print(str(len(entities)) + " Distinct Entities")
+        print(str(len(relations)) + " Distinct Relations")
+        print(str(len(encoded_train_triples)) + " Train Triples")
+        print(str(len(encoded_validation_triples)) + " Validation Triples")
+        print(str(len(encoded_test_triples)) + " Test Triples")
+        return entities, relations, encoded_train_triples, encoded_validation_triples, encoded_test_triples

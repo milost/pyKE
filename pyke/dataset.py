@@ -38,7 +38,9 @@ class Dataset(object):
     describing an index in an ordered table.
     """
 
-    def __init__(self, filename: str = None, temp_dir: str = ".pyke", generate_valid_test: bool = False,
+    def __init__(self, train_file: str = None,
+                 valid_file: str = None,
+                 test_file: str = None, temp_dir: str = ".pyke", generate_valid_test: bool = False,
                  fail_silently: bool = True):
         """
         Creates a new dataset from a N-triples file.
@@ -61,10 +63,10 @@ class Dataset(object):
         """
         self.__library = Library.get_library(temp_dir)
 
-        if filename:
-            self.name = Path(filename).stem
+        if train_file:
+            self.name = Path(train_file).stem
         else:
-            self.name = filename
+            self.name = train_file
 
         self.size = 0
         self.benchmark_dir = ''
@@ -76,9 +78,12 @@ class Dataset(object):
         self.relation2id = {}
         self._id2relation = {}
 
-        if filename is not None:
-            parser = NTriplesParser(filename, temp_dir, generate_valid_test, fail_silently)
-            parser.parse()
+        if train_file is not None:
+            parser = NTriplesParser(train_file, temp_dir, generate_valid_test, fail_silently)
+            if valid_file is not None and test_file is not None:
+                parser.parse(train_file, valid_file, test_file)
+            else:
+                parser.parse()
 
             self.benchmark_dir = parser.output_dir if parser.output_dir[:-1] == "/" else parser.output_dir + "/"
             self.__library.setInPath(
@@ -89,13 +94,13 @@ class Dataset(object):
             self.rel_count = parser.rel_count
             self.shape = self.ent_count, self.rel_count
             self.train_set = self.read_benchmark(parser.train_file, desc=' train set')
-            self.test_set = self.read_benchmark(parser.test_file, desc=' test set') if generate_valid_test else []
-            self.valid_set = self.read_benchmark(parser.valid_file, desc=' validation set') if generate_valid_test else []
+            self.test_set = self.read_benchmark(parser.test_file, desc=' test set') if (generate_valid_test or test_file is not None) else []
+            self.valid_set = self.read_benchmark(parser.valid_file, desc=' validation set') if (generate_valid_test or valid_file is not None) else []
 
             self.entity2id, self._id2entity = parse_idx_file(parser.entity_file)
             self.relation2id, self._id2relation = parse_idx_file(parser.relation_file)
 
-        if generate_valid_test:
+        if generate_valid_test or test_file is not None:
             self.__library.importTestFiles()
             # self.__library.importTypeFiles()
 
