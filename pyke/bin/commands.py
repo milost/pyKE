@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import click
-import os
+import sys
 import re
 import pandas as pd
 
@@ -55,6 +55,8 @@ def cli():
 @click.option('-o', '--out', type=str, default='./embeddings',
               help='Output directory in which the generated embeddings are to be stored')
 @click.option('-j', '--json', default=False)
+@click.option('-val', '--valid_file', default=None)
+@click.option('-test', '--test_file', default=None)
 @click.argument('file_path')
 def compute(model,
             n_batches,
@@ -69,13 +71,20 @@ def compute(model,
             eval,
             out,
             json,
+            valid_file,
+            test_file,
             file_path):
     """Initializes the repository."""
     file_path = Path(file_path)
+
     if file_path.suffix == '.npz':
         dataset = Dataset.from_npz(file_path)
-    else:
+    elif valid_file is not None and test_file is not None:
+        dataset = Dataset(train_file=str(file_path), valid_file=valid_file, test_file=test_file, generate_valid_test=True)
+    elif valid_file is None and test_file is None and eval:
         dataset = Dataset(train_file=str(file_path), generate_valid_test=True)
+    else:
+        dataset = Dataset(train_file=str(file_path))
 
     click.echo("Start training using the following parameters: ")
     click.echo("-----------------------------------------------")
@@ -154,53 +163,31 @@ def compute(model,
 
 @cli.command(help='Build dataset from a file containing knowledge base triples')
 @click.option('-g', '--generate_validation_test', type=bool, default=False, help='Generate validation and test sets')
+@click.option('-val', '--validation_file', default=None, help='A file containing validation triples')
+@click.option('-test', '--test_file', default=None, help='A file containing test triples')
+@click.option('-o', '--out', default=None, help='Where to write the generated dataset file')
 @click.argument('file_in')
-@click.argument('file_out')
 def build_dataset(generate_validation_test,
-                  file_in,
-                  file_out):
-    """Initializes the repository."""
-    dataset = Dataset(train_file=file_in, generate_valid_test=generate_validation_test)
-    dataset.to_npz(out_path=file_out)
+                  validation_file,
+                  test_file,
+                  out,
+                  file_in):
+    """Create npz dataset file"""
+    file_in = Path(file_in)
+    if not file_in.exists():
+        click.echo(f'The file {file_in} does not exist')
+        return sys.exit(1)
 
+    if out is None:
+        out = f'./{file_in.with_suffix(".npz")}'
 
-@cli.command(help='Compute evaluation metrics using all predictions in the specified folder')
-@click.option('-k', type=int, default=10, help='The k value used for computing Hits@k')
-@click.argument('folder_path')
-def compute_eval_metrics(k, folder_path):
-    folder_path = Path(folder_path)
-    exclude = ['metrics.csv']
-    regex = r"(\d+).csv"
-
-    predictions = []
-    for dir_name, subdirs, files in os.walk(folder_path):
-        print('Found directory: %s' % dir_name)
-        for file in files:
-            if file.endswith('.csv') and file not in exclude:
-                predictions.append(file)
-    predictions = sorted(predictions)
-
-    data = []
-    column_headers = None
-    for file in predictions:
-        row = []
-        matches = re.finditer(regex, file, re.MULTILINE)
-        for match in matches:
-            row.append(int(match.group(1)))
-
-        df = pd.read_csv(str(folder_path / file))
-        metrics = calc_metrics(rank_predictions=df, k=k)
-        if column_headers is None:
-            tmp = ['epochs']
-            tmp.extend(list(metrics))
-            column_headers = tmp
-
-        for column in list(metrics):
-            row.append(metrics[column].values[0])
-        data.append(row)
-
-    joined_df = pd.DataFrame(data, columns=column_headers)
-    joined_df.to_csv(str(folder_path / 'metrics.csv'))
+    if validation_file is not None and test_file is not None:
+        dataset = Dataset(train_file=str(file_in), valid_file=validation_file, test_file=test_file, generate_valid_test=True)
+    elif validation_file is None and test_file is None and generate_validation_test:
+        dataset = Dataset(train_file=str(file_in), generate_valid_test=True)
+    else:
+        dataset = Dataset(train_file=str(file_in))
+    dataset.to_npz(out_path=out)
 
 
 @cli.command(help='Plot evaluation metrics')

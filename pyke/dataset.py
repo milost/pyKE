@@ -40,7 +40,9 @@ class Dataset(object):
 
     def __init__(self, train_file: str = None,
                  valid_file: str = None,
-                 test_file: str = None, temp_dir: str = ".pyke", generate_valid_test: bool = False,
+                 test_file: str = None,
+                 temp_dir: str = ".pyke",
+                 generate_valid_test: bool = False,
                  fail_silently: bool = True):
         """
         Creates a new dataset from a N-triples file.
@@ -63,7 +65,7 @@ class Dataset(object):
         """
         self.__library = Library.get_library(temp_dir)
 
-        if train_file:
+        if isinstance(train_file, str):
             self.name = Path(train_file).stem
         else:
             self.name = train_file
@@ -77,6 +79,7 @@ class Dataset(object):
         self._id2entity = {}
         self.relation2id = {}
         self._id2relation = {}
+        self.hashsum = None
 
         if train_file is not None:
             parser = NTriplesParser(train_file, temp_dir, generate_valid_test, fail_silently)
@@ -85,6 +88,7 @@ class Dataset(object):
             else:
                 parser.parse()
 
+            self.hashsum = parser.file_hashsum
             self.benchmark_dir = parser.output_dir if parser.output_dir[:-1] == "/" else parser.output_dir + "/"
             self.__library.setInPath(
                 ctypes.create_string_buffer(self.benchmark_dir.encode(), len(self.benchmark_dir) * 2))
@@ -105,6 +109,16 @@ class Dataset(object):
             # self.__library.importTypeFiles()
 
         self.generate_valid_test = generate_valid_test
+
+    def import_files(self, dir: str):
+        if not dir.endswith('/'):
+            dir = dir + '/'
+
+        self.__library.setInPath(
+            ctypes.create_string_buffer(dir.encode(), len(dir) * 2))
+        self.__library.importTrainFiles()
+        if self.test_set.size != 0:
+            self.__library.importTestFiles()
 
     def __len__(self):
         """Returns the size of the dataset."""
@@ -266,10 +280,11 @@ class Dataset(object):
                             rel_count=self.rel_count,
                             shape=self.shape,
                             size=self.size,
-                            name=self.name)
+                            name=self.name,
+                            hashsum=self.hashsum)
 
     @classmethod
-    def from_npz(cls, path: str) -> 'Dataset':
+    def from_npz(cls, path: str, tmp_dir='.pyke') -> 'Dataset':
         with np.load(str(path)) as data:
             dataset = cls()
             dataset.train_set = data['train_set']
@@ -283,6 +298,42 @@ class Dataset(object):
             dataset.shape = (data['shape'][0], data['shape'][1])
             dataset.size = data['size'].item()
             dataset.name = data['name'].item()
+            dataset.hashsum = data['hashsum'].item()
+
+            tmp_dir = Path(tmp_dir)
+            out_dir = tmp_dir / dataset.hashsum
+            if not out_dir.exists():
+                out_dir.mkdir(parents=True, exist_ok=True)
+
+                with open(out_dir / 'entity2id.txt', 'w') as f:
+                    f.write(f'{len(dataset.entity2id)}\n')
+                    for entity, _id in dataset.entity2id.items():
+                        f.write(f'{entity}\t{_id}\n')
+
+                with open(out_dir / 'relation2id.txt', 'w') as f:
+                    f.write(f'{len(dataset.relation2id)}\n')
+                    for relation, _id in dataset.relation2id.items():
+                        f.write(f'{relation}\t{_id}\n')
+
+                with open(out_dir / 'train2id.txt', 'w') as f:
+                    f.write(f'{dataset.size}\n')
+                    for subj, obj, pred in dataset.train_triples:
+                        f.write(f'{subj}\t{obj}\t{pred}\n')
+
+                if dataset.test_set.size != 0:
+                    with open(out_dir / 'test2id.txt', 'w') as f:
+                        f.write(f'{dataset.test_set.shape[0]}\n')
+                        for subj, obj, pred in dataset.test_triples:
+                            f.write(f'{subj}\t{obj}\t{pred}\n')
+
+                if dataset.valid_set.size != 0:
+                    with open(out_dir / 'valid2id.txt', 'w') as f:
+                        f.write(f'{dataset.valid_set.shape[0]}\n')
+                        for subj, obj, pred in dataset.validation_triples:
+                            f.write(f'{subj}\t{obj}\t{pred}\n')
+
+            dataset.import_files(str(out_dir))
+
             return dataset
 
     @staticmethod

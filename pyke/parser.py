@@ -184,6 +184,9 @@ class NTriplesParser:
         srs_ent = pd.Series(list(dict_ent.keys()), index=list(dict_ent.values())).sort_index()
         srs_rel = pd.Series(list(dict_rel.keys()), index=list(dict_rel.values())).sort_index()
         df_train_triples = pd.DataFrame(list_train_triples)
+
+        df_validation_triples = None
+        df_test_triples = None
         if list_validation_triples is not None:
             df_validation_triples = pd.DataFrame(list_validation_triples)
         if list_test_triples is not None:
