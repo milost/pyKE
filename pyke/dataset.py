@@ -281,7 +281,8 @@ class Dataset(object):
                             shape=self.shape,
                             size=self.size,
                             name=self.name,
-                            hashsum=self.hashsum)
+                            hashsum=self.hashsum,
+                            generate_valid_test=self.generate_valid_test)
 
     @classmethod
     def from_npz(cls, path: str, tmp_dir='.pyke') -> 'Dataset':
@@ -299,6 +300,7 @@ class Dataset(object):
             dataset.size = data['size'].item()
             dataset.name = data['name'].item()
             dataset.hashsum = data['hashsum'].item()
+            dataset.generate_valid_test = data['generate_valid_test'].item()
 
             tmp_dir = Path(tmp_dir)
             out_dir = tmp_dir / dataset.hashsum

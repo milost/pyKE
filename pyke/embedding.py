@@ -123,6 +123,11 @@ class Embedding:
         return self.neg_rel + self.neg_ent + 1
 
     def predict(self, head_id, tail_id, rel_id):
+
+        head_id = int(head_id) if head_id is not None else None
+        tail_id = int(tail_id) if tail_id is not None else None
+        rel_id = int(rel_id) if rel_id is not None else None
+
         heads = [head_id] if isinstance(head_id, int) else head_id
         tails = [tail_id] if isinstance(tail_id, int) else tail_id
         rels = [rel_id] if isinstance(rel_id, int) else rel_id
@@ -225,6 +230,12 @@ class Embedding:
         """
         return self.dataset.valid_set if self.dataset.generate_valid_test else self.dataset.train_set
 
+    def get_test_triples(self):
+        """
+        Returns a list of triples used for the metrics.
+        """
+        return self.dataset.test_set if self.dataset.generate_valid_test else self.dataset.train_set
+
     def get_predictions(self, filtered=False, head=True, tail=True, label=False):
         """
         Computes the mean rank of the embedding.
@@ -241,7 +252,7 @@ class Embedding:
         if label:
             column_headers.append('rel_rank')
 
-        triples = self.get_validation_triples()
+        triples = self.get_test_triples()
 
         for (head_id, tail_id, label_id) in tqdm(triples, desc='Calculating rankings'):
             row = [head_id, tail_id, label_id]

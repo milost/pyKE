@@ -129,8 +129,8 @@ def compute(model,
         checkpoint_path.mkdir(parents=True)
 
     # if dataset is not written out, do so
-    if not (out_path / f'{dataset.name}_dataset.npz').exists():
-        dataset.to_npz(out_path / f'{dataset.name}_dataset.npz')
+    # if not (out_path / f'{dataset.name}_dataset.npz').exists():
+    #    dataset.to_npz(out_path / f'{dataset.name}_dataset.npz')
 
     embedding.train(prefix=str(checkpoint_path / dataset.name))
 
@@ -143,7 +143,7 @@ def compute(model,
 
     if eval:
         rank_predictions = embedding.get_predictions()
-        #rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
+        # rank_predictions.to_csv(f'{out_path}/{dataset.name}_rank_predictions.csv')
 
         results = calc_metrics(rank_predictions=rank_predictions)
         if (out_path / f'{dataset.name}_metrics.csv').exists():
@@ -228,8 +228,18 @@ def plot_eval_metrics(filename, plot, folder_path):
             y=metrics['mrr'],
             name='MRR',
         )
+        mrr_head = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mean_reciprocal_head_rank'],
+            name='Head MRR',
+        )
+        mrr_tail = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mean_reciprocal_tail_rank'],
+            name='Tail MRR',
+        )
 
-        data = [mrr]
+        data = [mrr, mrr_head, mrr_tail]
     elif plot == 'mean_rank':
         title = 'Plot of mean rank with increasing epochs'
         mean_rank = go.Scatter(
@@ -237,7 +247,17 @@ def plot_eval_metrics(filename, plot, folder_path):
             y=metrics['mean_rank'],
             name='Mean Rank'
         )
-        data = [mean_rank]
+        mean_head_rank = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mean_head_rank'],
+            name='Mean Head Rank'
+        )
+        mean_tail_rank = go.Scatter(
+            x=metrics['epochs'],
+            y=metrics['mean_tail_rank'],
+            name='Mean Tail Rank'
+        )
+        data = [mean_rank, mean_head_rank, mean_tail_rank]
 
     # Edit the layout
     layout = dict(title=title,

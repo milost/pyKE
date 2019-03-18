@@ -51,7 +51,7 @@ def get_array_pointer(a):
     return a.__array_interface__['data'][0]
 
 
-def get_rank(predictions: np.array, value: float):
+def get_rank_orig(predictions: np.array, value: float):
     """
     Helper function. Returns the index of value in predictions, if predictions were sorted ascending.
 
@@ -63,7 +63,18 @@ def get_rank(predictions: np.array, value: float):
     return len(smaller_predictions[0]) + 1
 
 
-def get_rank_old(predictions: np.array, value: float):
+def get_rank(predictions: np.array, value: float):
+    """
+    Helper function. Returns the index of value in predictions, if predictions were sorted ascending.
+
+    :param predictions: list of prediction values
+    :param value: value to look for
+    :return: index of the value (i.e. number of predictions smaller than value)
+    """
+    return (predictions < value).sum() + 1
+
+
+def get_rank_bigger(predictions: np.array, value: float):
     """
     Helper function. Returns the index of value in predictions, if predictions were sorted ascending.
 
@@ -74,7 +85,7 @@ def get_rank_old(predictions: np.array, value: float):
     return (predictions > value).sum() + 1
 
 
-def calc_hits_at_n(rankings:pd.DataFrame, k=1):
+def calc_hits_at_n(rankings: pd.DataFrame, k=1):
 
     head_k = (rankings.head_rank <= k).astype(int)
     tail_k = (rankings.tail_rank <= k).astype(int)
